@@ -1,17 +1,17 @@
 package com.xsytrance.vaib
 
 import android.app.Application
-import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.xsytrance.vaib.audio.AudioPlayer
 import com.xsytrance.vaib.data.TrackPrefs
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 enum class Screen { HOME, SOLO_DREAMSCAPE }
 
@@ -56,13 +56,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun startPositionTicker() {
         viewModelScope.launch {
-            while (true) {
-                delay(250)
-                val dur = audioPlayer.durationMs
-                if (dur > 0) {
-                    _playbackFraction.value =
-                        (audioPlayer.currentPositionMs.toFloat() / dur.toFloat())
-                            .coerceIn(0f, 1f)
+            audioPlayer.isPlaying.collectLatest { playing ->
+                if (playing) {
+                    while (true) {
+                        val dur = audioPlayer.durationMs
+                        if (dur > 0) {
+                            _playbackFraction.value =
+                                (audioPlayer.currentPositionMs.toFloat() / dur.toFloat())
+                                    .coerceIn(0f, 1f)
+                        }
+                        delay(250)
+                    }
                 }
             }
         }
