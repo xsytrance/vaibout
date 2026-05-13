@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.xsytrance.vaib.app-mergeDebugResources-66:/values-h550dp-port-v13/values-h550dp-port-v13.xml",
+            "map": [
+                {
+                    "source": "/home/xsyprime/.gradle/caches/8.10.2/transforms/321a27d1d3f130f3fbf5e60a388b33e1/transformed/material-1.12.0/res/values-h550dp-port-v13/values-h550dp-port-v13.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "64",
+                        "endOffsets": "115"
+                    }
+                }
+            ]
+        }
+    ]
+}
