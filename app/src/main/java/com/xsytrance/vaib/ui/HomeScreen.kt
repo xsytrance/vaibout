@@ -47,9 +47,9 @@ fun HomeScreen(
 
         // ── Header ────────────────────────────────────────────────────
         Text(
-            text = "vAIb",
+            text = "vAIb out!",
             color = Color.White,
-            fontSize = 56.sp,
+            fontSize = 52.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = (-1.5).sp,
         )
@@ -101,7 +101,7 @@ fun HomeScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
             VaibGlowButton(
-                label = "Enter Solo Dreamscape",
+                label = "vAIb out",
                 onClick = onEnterDreamscape,
                 modifier = Modifier.fillMaxWidth(),
             )
