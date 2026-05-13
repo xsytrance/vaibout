@@ -4,8 +4,11 @@ import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.xsytrance.vaib.audio.AudioPlayer
 import com.xsytrance.vaib.data.TrackPrefs
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,8 +31,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _screen = MutableStateFlow(Screen.HOME)
     val screen: StateFlow<Screen> = _screen.asStateFlow()
 
+    // 0f..1f fraction; -1f when duration is unknown
+    private val _playbackFraction = MutableStateFlow(0f)
+    val playbackFraction: StateFlow<Float> = _playbackFraction.asStateFlow()
+
     init {
         restorePersistedTrack(application)
+        startPositionTicker()
     }
 
     private fun restorePersistedTrack(application: Application) {
@@ -46,6 +54,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun startPositionTicker() {
+        viewModelScope.launch {
+            while (true) {
+                delay(250)
+                val dur = audioPlayer.durationMs
+                if (dur > 0) {
+                    _playbackFraction.value =
+                        (audioPlayer.currentPositionMs.toFloat() / dur.toFloat())
+                            .coerceIn(0f, 1f)
+                }
+            }
+        }
+    }
+
     fun loadTrack(uri: Uri, displayName: String?) {
         val cleanName = displayName
             ?.let { name ->
@@ -55,6 +77,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ?: "Unknown Track"
         _trackUri.value = uri
         _trackName.value = cleanName
+        _playbackFraction.value = 0f
         trackPrefs.save(uri, cleanName)
         audioPlayer.loadTrack(uri)
     }

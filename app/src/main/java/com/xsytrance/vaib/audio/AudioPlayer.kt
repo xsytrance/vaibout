@@ -15,6 +15,9 @@ class AudioPlayer(context: Context) {
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying
 
+    val currentPositionMs: Long get() = player.currentPosition
+    val durationMs: Long get() = player.duration
+
     init {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {

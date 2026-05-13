@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,6 +36,7 @@ fun HomeScreen(
     val trackName by viewModel.trackName.collectAsState()
     val trackUri by viewModel.trackUri.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
+    val playbackFraction by viewModel.playbackFraction.collectAsState()
     val hasTrack = trackUri != null
 
     Column(
@@ -67,8 +70,12 @@ fun HomeScreen(
         // ── Track info ────────────────────────────────────────────────
         if (hasTrack) {
             Text(
-                text = "LOADED",
-                color = VaibColors.TextSoft,
+                text = when {
+                    isPlaying -> "PLAYING"
+                    playbackFraction > 0f -> "PAUSED"
+                    else -> "READY"
+                },
+                color = if (isPlaying) VaibColors.CyanPulse else VaibColors.TextSoft,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 2.sp,
@@ -82,7 +89,17 @@ fun HomeScreen(
                 maxLines = 2,
                 lineHeight = 24.sp,
             )
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            LinearProgressIndicator(
+                progress = { playbackFraction },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp),
+                color = VaibColors.CyanPulse,
+                trackColor = Color.White.copy(alpha = 0.07f),
+                strokeCap = StrokeCap.Round,
+            )
+            Spacer(modifier = Modifier.height(20.dp))
         }
 
         // ── Controls ──────────────────────────────────────────────────
