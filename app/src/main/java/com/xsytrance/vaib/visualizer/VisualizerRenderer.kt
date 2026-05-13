@@ -76,12 +76,13 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         // Detect rising edge of beat on the GL thread.
         // This is the only place beatTriggerTime is written, so no locking needed.
         val currentBeat = beat
-        if (prevBeat < 0.5f && currentBeat >= 0.5f) {
+        val beatAge = elapsed - beatTriggerTime  // seconds since last beat
+
+        // Gate: don't retrigger until current ripple has expanded at least 150 ms.
+        if (prevBeat < 0.5f && currentBeat >= 0.5f && beatAge > 0.15f) {
             beatTriggerTime = elapsed
         }
         prevBeat = currentBeat
-
-        val beatAge = elapsed - beatTriggerTime  // seconds since last beat
 
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         GLES20.glUseProgram(program)

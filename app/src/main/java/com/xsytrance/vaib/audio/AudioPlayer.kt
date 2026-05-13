@@ -35,6 +35,14 @@ class AudioPlayer(context: Context) {
         player.play()
     }
 
+    /** Prepares the track but does not start playback. Use for vAIb recall. */
+    fun prepareTrack(uri: Uri) {
+        player.stop()
+        player.clearMediaItems()
+        player.setMediaItem(MediaItem.fromUri(uri))
+        player.prepare()
+    }
+
     fun togglePlayPause() {
         if (player.isPlaying) player.pause() else player.play()
     }

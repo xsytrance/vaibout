@@ -6,11 +6,11 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "vaibs")
 data class VaibEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val name: String,
-    val trackId: Long,
+    val vaibName: String,
+    val trackUri: String,
+    val trackName: String,
+    val mood: String,
     val visualizerStyle: String,
-    val eqPreset: String?,
-    val effectsPreset: String?,
-    val theme: String?,
-    val mood: String
+    val themeId: String,
+    val createdAt: Long,
 )
