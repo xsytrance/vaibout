@@ -6,21 +6,31 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.sqrt
 
 /**
- * Lightweight wrapper around [Visualizer] that computes a normalised RMS energy
- * value (0f..1f) from the waveform capture and emits it as a [StateFlow].
+ * Lightweight wrapper around [Visualizer] that emits two reactive values:
+ *  - [energy]    — normalised RMS amplitude (0..1), smoothed at ~10 Hz.
+ *  - [beatPulse] — 1f on a detected transient, decaying to 0 within ~400ms.
  *
- * Lifecycle: call [start] when entering Solo Dreamscape (after RECORD_AUDIO is
- * granted and a track is prepared). Call [stop] when leaving. [audioSessionId]
- * must be non-zero (ExoPlayer assigns a real ID only after prepare()).
+ * Beat detection: fires when instantaneous RMS rises ≥ 45 % above a slow
+ * background EMA (τ ≈ 1.2 s), with a 300 ms debounce to suppress re-triggers.
+ *
+ * Lifecycle: call [start] after RECORD_AUDIO is granted and ExoPlayer has
+ * called prepare() (audioSessionId must be non-zero). Call [stop] on exit.
  */
 class AudioVisualizerAnalyzer {
 
     private var visualizer: Visualizer? = null
 
-    private val _energy = MutableStateFlow(0f)
-    val energy: StateFlow<Float> = _energy
+    private val _energy    = MutableStateFlow(0f)
+    private val _beatPulse = MutableStateFlow(0f)
 
-    /** Returns true if the Visualizer was successfully attached. */
+    val energy:    StateFlow<Float> = _energy
+    val beatPulse: StateFlow<Float> = _beatPulse
+
+    // Beat detection state — only touched in the Visualizer callback thread.
+    private var slowEnergy   = 0f
+    private var beatDebounce = 0   // countdown in callback ticks (~100 ms each)
+
+    /** Returns true if the Visualizer attached successfully. */
     fun start(audioSessionId: Int): Boolean {
         if (audioSessionId == 0) return false
         stop()
@@ -34,17 +44,35 @@ class AudioVisualizerAnalyzer {
                             waveform: ByteArray,
                             samplingRate: Int,
                         ) {
-                            // Waveform bytes: unsigned 0..255, silence centered at 128.
-                            // Compute RMS of deviation from silence.
+                            // Waveform bytes are unsigned 0–255, centred at 128 (silence).
                             var sumSq = 0f
                             for (b in waveform) {
-                                val sample = (b.toInt() and 0xFF) - 128f
-                                sumSq += sample * sample
+                                val s = (b.toInt() and 0xFF) - 128f
+                                sumSq += s * s
                             }
                             val rms = sqrt(sumSq / waveform.size) / 128f
-                            // Exponential smoothing to avoid choppy jumps.
-                            _energy.value = (_energy.value * 0.6f + rms * 0.4f)
+
+                            // Fast-smoothed energy for continuous visual modulation.
+                            _energy.value = (_energy.value * 0.60f + rms * 0.40f)
                                 .coerceIn(0f, 1f)
+
+                            // Slow background EMA (τ ≈ 1.2 s at 10 Hz callbacks).
+                            slowEnergy = slowEnergy * 0.92f + rms * 0.08f
+
+                            // Decay the beat pulse each tick.
+                            _beatPulse.value = (_beatPulse.value * 0.55f)
+                                .coerceAtLeast(0f)
+
+                            // Transient: sharp rise well above background, not silence.
+                            if (beatDebounce <= 0
+                                && rms > 0.05f
+                                && rms > slowEnergy * 1.45f
+                            ) {
+                                _beatPulse.value = 1f
+                                beatDebounce = 3   // ≈ 300 ms
+                            } else if (beatDebounce > 0) {
+                                beatDebounce--
+                            }
                         }
 
                         override fun onFftDataCapture(
@@ -67,11 +95,11 @@ class AudioVisualizerAnalyzer {
     }
 
     fun stop() {
-        visualizer?.apply {
-            enabled = false
-            release()
-        }
-        visualizer = null
-        _energy.value = 0f
+        visualizer?.apply { enabled = false; release() }
+        visualizer    = null
+        slowEnergy    = 0f
+        beatDebounce  = 0
+        _energy.value     = 0f
+        _beatPulse.value  = 0f
     }
 }

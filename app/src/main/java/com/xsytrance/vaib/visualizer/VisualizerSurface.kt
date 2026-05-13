@@ -19,6 +19,7 @@ private class GLViewHolder {
 fun VisualizerSurface(
     modifier: Modifier = Modifier,
     energy: Float = 0f,
+    beat:   Float = 0f,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val holder = remember { GLViewHolder() }
@@ -36,8 +37,9 @@ fun VisualizerSurface(
             }
         },
         update = {
-            // @Volatile on VisualizerRenderer.energy ensures GL-thread visibility.
+            // @Volatile on both fields ensures GL-thread visibility.
             holder.renderer?.energy = energy
+            holder.renderer?.beat   = beat
         },
     )
 

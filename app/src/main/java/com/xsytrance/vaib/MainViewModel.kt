@@ -22,7 +22,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val trackPrefs = TrackPrefs(application)
     private val analyzer = AudioVisualizerAnalyzer()
 
-    val audioEnergy = analyzer.energy
+    val audioEnergy    = analyzer.energy
+    val audioBeatPulse = analyzer.beatPulse
 
     val isPlaying: StateFlow<Boolean> = audioPlayer.isPlaying
 

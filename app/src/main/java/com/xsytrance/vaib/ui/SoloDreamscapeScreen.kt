@@ -47,6 +47,7 @@ fun SoloDreamscapeScreen(
     val view = LocalView.current
     val context = LocalContext.current
     val audioEnergy by viewModel.audioEnergy.collectAsState()
+    val audioBeat   by viewModel.audioBeatPulse.collectAsState()
     var reactiveAvailable by remember { mutableStateOf(false) }
 
     // ── Permission + analyzer start ───────────────────────────────────
@@ -95,6 +96,7 @@ fun SoloDreamscapeScreen(
         VisualizerSurface(
             modifier = Modifier.fillMaxSize(),
             energy = audioEnergy,
+            beat   = audioBeat,
         )
 
         // Exit button (top-right, barely visible)
