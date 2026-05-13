@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.xsytrance.vaib.audio.AudioPlayer
+import com.xsytrance.vaib.audio.AudioVisualizerAnalyzer
 import com.xsytrance.vaib.data.TrackPrefs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val audioPlayer = AudioPlayer(application)
     private val trackPrefs = TrackPrefs(application)
+    private val analyzer = AudioVisualizerAnalyzer()
+
+    val audioEnergy = analyzer.energy
 
     val isPlaying: StateFlow<Boolean> = audioPlayer.isPlaying
 
@@ -88,12 +92,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun togglePlayPause() = audioPlayer.togglePlayPause()
 
+    /** Returns true if the Visualizer attached successfully. */
+    fun startAnalyzer(): Boolean = analyzer.start(audioPlayer.audioSessionId)
+
+    fun stopAnalyzer() = analyzer.stop()
+
     fun navigateTo(screen: Screen) {
         _screen.value = screen
     }
 
     override fun onCleared() {
         super.onCleared()
+        analyzer.stop()
         audioPlayer.release()
     }
 }

@@ -18,6 +18,9 @@ class AudioPlayer(context: Context) {
     val currentPositionMs: Long get() = player.currentPosition
     val durationMs: Long get() = player.duration
 
+    // Available after prepare(); 0 means not yet assigned.
+    val audioSessionId: Int get() = player.audioSessionId
+
     init {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {

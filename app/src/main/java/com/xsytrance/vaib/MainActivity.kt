@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
                         onEnterDreamscape = { viewModel.navigateTo(Screen.SOLO_DREAMSCAPE) },
                     )
                     Screen.SOLO_DREAMSCAPE -> SoloDreamscapeScreen(
+                        viewModel = viewModel,
                         onBack = { viewModel.navigateTo(Screen.HOME) },
                     )
                 }
