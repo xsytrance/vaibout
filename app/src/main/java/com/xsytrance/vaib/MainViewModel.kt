@@ -9,6 +9,9 @@ import com.xsytrance.vaib.audio.AudioVisualizerAnalyzer
 import com.xsytrance.vaib.data.TrackPrefs
 import com.xsytrance.vaib.data.VaibDatabase
 import com.xsytrance.vaib.data.entities.VaibEntity
+import com.xsytrance.vaib.discover.ArchiveItem
+import com.xsytrance.vaib.discover.DiscoverUiState
+import com.xsytrance.vaib.discover.InternetArchiveApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,7 +21,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class Screen { HOME, SOLO_DREAMSCAPE }
+enum class Screen { HOME, SOLO_DREAMSCAPE, DISCOVER }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -47,23 +50,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val savedVaibs: StateFlow<List<VaibEntity>> = vaibDao.observeAll()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    // ── Discover ──────────────────────────────────────────────────────
+
+    private val _discoverState = MutableStateFlow<DiscoverUiState>(DiscoverUiState.Loading)
+    val discoverState: StateFlow<DiscoverUiState> = _discoverState.asStateFlow()
+
+    private val _loadingItemId = MutableStateFlow<String?>(null)
+    val loadingItemId: StateFlow<String?> = _loadingItemId.asStateFlow()
+
     init {
         restorePersistedTrack(application)
         startPositionTicker()
     }
 
+    // ── Track restore ─────────────────────────────────────────────────
+
     private fun restorePersistedTrack(application: Application) {
         val savedUri  = trackPrefs.loadUri()  ?: return
         val savedName = trackPrefs.loadName() ?: return
-        val stillGranted = application.contentResolver.persistedUriPermissions
-            .any { it.uri == savedUri && it.isReadPermission }
-        if (stillGranted) {
-            _trackUri.value  = savedUri
-            _trackName.value = savedName
-        } else {
-            trackPrefs.clear()
+
+        // Remote https:// URIs don't use SAF persistable permissions — skip the check
+        val isRemote = savedUri.scheme == "https" || savedUri.scheme == "http"
+        if (!isRemote) {
+            val stillGranted = application.contentResolver.persistedUriPermissions
+                .any { it.uri == savedUri && it.isReadPermission }
+            if (!stillGranted) {
+                trackPrefs.clear()
+                return
+            }
         }
+        _trackUri.value  = savedUri
+        _trackName.value = savedName
     }
+
+    // ── Position ticker ───────────────────────────────────────────────
 
     private fun startPositionTicker() {
         viewModelScope.launch {
@@ -83,6 +103,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ── Local track ───────────────────────────────────────────────────
+
     fun loadTrack(uri: Uri, displayName: String?) {
         val cleanName = displayName
             ?.let { name ->
@@ -97,24 +119,68 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         audioPlayer.loadTrack(uri)
     }
 
+    // ── Discover / online track ───────────────────────────────────────
+
+    fun fetchDiscoverItems() {
+        viewModelScope.launch {
+            _discoverState.value = DiscoverUiState.Loading
+            try {
+                val items = InternetArchiveApi.fetchItems()
+                _discoverState.value = if (items.isEmpty()) {
+                    DiscoverUiState.Error("No results found. Check your connection.")
+                } else {
+                    DiscoverUiState.Success(items)
+                }
+            } catch (e: Exception) {
+                _discoverState.value = DiscoverUiState.Error(
+                    "Couldn't load music. Check your connection."
+                )
+            }
+        }
+    }
+
+    fun loadOnlineTrack(item: ArchiveItem) {
+        viewModelScope.launch {
+            _loadingItemId.value = item.id
+            try {
+                val url = InternetArchiveApi.resolveStreamUrl(item.id)
+                if (url != null) {
+                    val uri = Uri.parse(url)
+                    _trackUri.value  = uri
+                    _trackName.value = item.title
+                    _playbackFraction.value = 0f
+                    trackPrefs.save(uri, item.title)
+                    audioPlayer.prepareTrack(uri)
+                    navigateTo(Screen.HOME)
+                }
+            } finally {
+                _loadingItemId.value = null
+            }
+        }
+    }
+
+    // ── vAIb save / recall ────────────────────────────────────────────
+
     fun saveVaib(vaibName: String, mood: String) {
         val uri = _trackUri.value ?: return
+        val sourceType = if (uri.scheme == "https" || uri.scheme == "http")
+            "INTERNET_ARCHIVE" else "LOCAL"
         viewModelScope.launch {
             vaibDao.insert(
                 VaibEntity(
-                    vaibName         = vaibName.trim().ifEmpty { _trackName.value ?: "Untitled vAIb" },
-                    trackUri         = uri.toString(),
-                    trackName        = _trackName.value ?: "Unknown Track",
-                    mood             = mood.trim(),
-                    visualizerStyle  = "PULSE",
-                    themeId          = "OLED_CYAN",
-                    createdAt        = System.currentTimeMillis(),
+                    vaibName        = vaibName.trim().ifEmpty { _trackName.value ?: "Untitled vAIb" },
+                    trackUri        = uri.toString(),
+                    trackName       = _trackName.value ?: "Unknown Track",
+                    mood            = mood.trim(),
+                    visualizerStyle = "PULSE",
+                    themeId         = "OLED_CYAN",
+                    createdAt       = System.currentTimeMillis(),
+                    sourceType      = sourceType,
                 )
             )
         }
     }
 
-    /** Restores a saved vAIb: loads track state and prepares player without auto-play. */
     fun loadVaib(vaib: VaibEntity) {
         val uri = Uri.parse(vaib.trackUri)
         _trackUri.value  = uri
@@ -123,6 +189,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         trackPrefs.save(uri, vaib.trackName)
         audioPlayer.prepareTrack(uri)
     }
+
+    // ── Playback / navigation ─────────────────────────────────────────
 
     fun togglePlayPause() = audioPlayer.togglePlayPause()
 

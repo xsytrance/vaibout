@@ -9,7 +9,7 @@ import com.xsytrance.vaib.data.entities.VaibEntity
 
 @Database(
     entities = [TrackEntity::class, VaibEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class VaibDatabase : RoomDatabase() {

@@ -59,6 +59,13 @@ fun VaibCard(vaib: VaibEntity, onClick: () -> Unit) {
                     color = VaibColors.TextSoft.copy(alpha = 0.55f),
                     fontSize = 11.sp,
                 )
+                if (vaib.sourceType == "INTERNET_ARCHIVE") {
+                    Text(
+                        text = "  ·  Internet Archive",
+                        color = VaibColors.CyanPulse.copy(alpha = 0.40f),
+                        fontSize = 11.sp,
+                    )
+                }
             }
         }
     }

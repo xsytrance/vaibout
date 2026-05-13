@@ -11,6 +11,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.xsytrance.vaib.core.design.VaibTheme
+import com.xsytrance.vaib.ui.DiscoverScreen
 import com.xsytrance.vaib.ui.HomeScreen
 import com.xsytrance.vaib.ui.SoloDreamscapeScreen
 
@@ -41,13 +42,18 @@ class MainActivity : ComponentActivity() {
                 val screen by viewModel.screen.collectAsState()
                 when (screen) {
                     Screen.HOME -> HomeScreen(
-                        viewModel = viewModel,
-                        onPickTrack = { pickAudio.launch(arrayOf("audio/*")) },
+                        viewModel        = viewModel,
+                        onPickTrack      = { pickAudio.launch(arrayOf("audio/*")) },
                         onEnterDreamscape = { viewModel.navigateTo(Screen.SOLO_DREAMSCAPE) },
+                        onDiscoverMusic  = { viewModel.navigateTo(Screen.DISCOVER) },
                     )
                     Screen.SOLO_DREAMSCAPE -> SoloDreamscapeScreen(
                         viewModel = viewModel,
-                        onBack = { viewModel.navigateTo(Screen.HOME) },
+                        onBack    = { viewModel.navigateTo(Screen.HOME) },
+                    )
+                    Screen.DISCOVER -> DiscoverScreen(
+                        viewModel = viewModel,
+                        onBack    = { viewModel.navigateTo(Screen.HOME) },
                     )
                 }
             }

@@ -1,5 +1,6 @@
 package com.xsytrance.vaib.data.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -13,4 +14,6 @@ data class VaibEntity(
     val visualizerStyle: String,
     val themeId: String,
     val createdAt: Long,
+    /** "LOCAL" for SAF content:// URIs, "INTERNET_ARCHIVE" for https:// streams. */
+    @ColumnInfo(defaultValue = "LOCAL") val sourceType: String = "LOCAL",
 )

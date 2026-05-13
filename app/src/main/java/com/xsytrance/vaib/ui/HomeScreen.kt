@@ -50,6 +50,7 @@ fun HomeScreen(
     viewModel: MainViewModel,
     onPickTrack: () -> Unit,
     onEnterDreamscape: () -> Unit,
+    onDiscoverMusic: () -> Unit,
 ) {
     val trackName        by viewModel.trackName.collectAsState()
     val trackUri         by viewModel.trackUri.collectAsState()
@@ -151,6 +152,12 @@ fun HomeScreen(
         VaibOutlinedButton(
             label = if (hasTrack) "Choose Different Track" else "Choose Track",
             onClick = onPickTrack,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        VaibOutlinedButton(
+            label = "Discover Open Music",
+            onClick = onDiscoverMusic,
             modifier = Modifier.fillMaxWidth(),
         )
 
