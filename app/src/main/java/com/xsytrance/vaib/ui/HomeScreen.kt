@@ -320,128 +320,37 @@ fun HomeScreen(
         )
     }
 
-    // ── Save vAIb dialog ──────────────────────────────────────────────
-    if (showSaveDialog) {
-        val trackName2 by viewModel.trackName.collectAsState()
-        val dismissWithCancel = {
-            showSaveDialog = false
-            nameInput = ""
-            selectedMood = ""
-            selectedEqPreset = EqPreset.FLAT
-            viewModel.applyEqPreset(eqPresetBeforeDialog)
-        }
-        val dismissWithSave = {
-            showSaveDialog = false
-            nameInput = ""
-            selectedMood = ""
-            selectedEqPreset = EqPreset.FLAT
-        }
-        AlertDialog(
-            onDismissRequest  = dismissWithCancel,
-            containerColor    = VaibColors.DeepBackground,
-            titleContentColor = Color.White,
-            textContentColor  = VaibColors.TextSoft,
-            title = { Text("Save vAIb", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value         = nameInput,
-                        onValueChange = { nameInput = it },
-                        label         = { Text("Name") },
-                        placeholder   = { Text(trackName2 ?: "My vAIb") },
-                        singleLine    = true,
-                        modifier      = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor     = Color.White,
-                            unfocusedTextColor   = Color.White,
-                            focusedBorderColor   = VaibColors.CyanPulse,
-                            unfocusedBorderColor = VaibColors.TextSoft.copy(alpha = 0.3f),
-                            focusedLabelColor    = VaibColors.CyanPulse,
-                            unfocusedLabelColor  = VaibColors.TextSoft,
-                            cursorColor          = VaibColors.CyanPulse,
-                        ),
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text("MOOD", color = VaibColors.TextSoft.copy(0.6f), fontSize = 10.sp,
-                        letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        MOOD_OPTIONS.forEach { mood ->
-                            FilterChip(
-                                selected = selectedMood == mood,
-                                onClick  = { selectedMood = if (selectedMood == mood) "" else mood },
-                                label    = { Text(mood, fontSize = 12.sp, fontWeight = FontWeight.Medium) },
-                                colors   = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = VaibColors.CyanPulse,
-                                    selectedLabelColor     = Color.Black,
-                                    containerColor         = Color.White.copy(0.08f),
-                                    labelColor             = Color.White.copy(0.75f),
-                                ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = true, selected = selectedMood == mood,
-                                    borderColor = Color.White.copy(0.12f),
-                                    selectedBorderColor = Color.Transparent,
-                                ),
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Text("EQ", color = VaibColors.TextSoft.copy(0.6f), fontSize = 10.sp,
-                        letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        EqPreset.entries.forEach { preset ->
-                            FilterChip(
-                                selected = selectedEqPreset == preset,
-                                onClick  = { selectedEqPreset = preset; viewModel.applyEqPreset(preset) },
-                                label    = { Text(preset.label, fontSize = 12.sp, fontWeight = FontWeight.Medium) },
-                                colors   = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = VaibColors.VioletGlow,
-                                    selectedLabelColor     = Color.White,
-                                    containerColor         = Color.White.copy(0.08f),
-                                    labelColor             = Color.White.copy(0.75f),
-                                ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = true, selected = selectedEqPreset == preset,
-                                    borderColor = Color.White.copy(0.12f),
-                                    selectedBorderColor = Color.Transparent,
-                                ),
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.saveVaib(
-                            nameInput.ifEmpty { trackName2 ?: "Untitled vAIb" },
-                            selectedMood,
-                            selectedEqPreset,
-                        )
-                        dismissWithSave()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = VaibColors.CyanPulse,
-                        contentColor   = Color.Black,
-                    ),
-                    shape     = RoundedCornerShape(10.dp),
-                    elevation = ButtonDefaults.buttonElevation(0.dp),
-                ) { Text("Save", fontWeight = FontWeight.Bold) }
-            },
-            dismissButton = {
-                TextButton(onClick = dismissWithCancel) {
-                    Text("Cancel", color = VaibColors.TextSoft)
-                }
-            },
-        )
+    // ── vAIb Card Studio bottom sheet ────────────────────────────────
+    val dismissWithCancel = {
+        showSaveDialog = false
+        nameInput = ""
+        selectedMood = ""
+        selectedEqPreset = EqPreset.FLAT
+        viewModel.applyEqPreset(eqPresetBeforeDialog)
     }
+    val dismissWithSave = {
+        showSaveDialog = false
+        nameInput = ""
+        selectedMood = ""
+        selectedEqPreset = EqPreset.FLAT
+    }
+
+    VaibCardStudioSheet(
+        showSheet       = showSaveDialog,
+        trackName       = trackName,
+        trackSource     = when {
+            trackUri?.scheme == "https" || trackUri?.scheme == "http" -> "Open Archive"
+            hasTrack -> "Local"
+            else -> ""
+        },
+        currentMood     = selectedMood,
+        currentEqPreset = selectedEqPreset,
+        onDismiss       = dismissWithCancel,
+        onSave          = { name, mood, eq ->
+            viewModel.saveVaib(name, mood, eq)
+            dismissWithSave()
+        },
+    )
 }
 
 // ── Ambient background ────────────────────────────────────────────────
