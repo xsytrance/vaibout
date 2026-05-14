@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.xsytrance.vaib.audio.AudioOutputDetector
 import com.xsytrance.vaib.audio.AudioPlayer
 import com.xsytrance.vaib.audio.AudioVisualizerAnalyzer
 import com.xsytrance.vaib.audio.EqController
