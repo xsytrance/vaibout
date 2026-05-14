@@ -1,0 +1,26 @@
+# Android/Gradle
+.gradle/
+build/
+**/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+
+# Artifacts
+*.apk
+*.aab
+
+# Signing
+*.jks
+*.keystore
+
+# Project-specific
+screenshots/
