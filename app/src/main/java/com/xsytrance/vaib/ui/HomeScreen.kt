@@ -131,6 +131,7 @@ fun HomeScreen(
     val hasTrack = trackUri != null
 
     val atmosphere by viewModel.currentAtmosphere.collectAsState()
+    val queueReady by viewModel.queueReady.collectAsState()
 
     var showSaveDialog       by remember { mutableStateOf(false) }
     var nameInput            by remember { mutableStateOf("") }
@@ -189,7 +190,6 @@ fun HomeScreen(
             }
 
             // ── Queue hint ────────────────────────────────────────────
-            val queueReady by viewModel.queueReady.collectAsState()
             if (queueReady && !hasTrack) {
                 item {
                     QueueHintChip(

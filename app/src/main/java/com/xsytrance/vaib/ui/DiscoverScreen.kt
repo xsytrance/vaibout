@@ -274,7 +274,7 @@ fun DiscoverScreen(
                         OrbitSongCard(
                             item       = item,
                             isLoading  = loadingItemId == item.id,
-                            anyLoading = loadingId != null,
+                            anyLoading = loadingItemId != null,
                             world      = world,
                             onClick    = { viewModel.loadOnlineTrack(item) },
                         )
