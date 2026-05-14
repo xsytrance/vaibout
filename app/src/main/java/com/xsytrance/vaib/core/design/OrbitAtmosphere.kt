@@ -40,10 +40,12 @@ import kotlin.random.Random
 fun OrbitAtmosphereLayer(
     moodColor: Color = VaibColors.CyanPulse,
     secondaryMoodColor: Color = VaibColors.VioletGlow,
+    energy: Float = 0f,
     modifier: Modifier = Modifier,
 ) {
     val textMeasurer = rememberTextMeasurer()
-    val particles = remember { createParticles(24) }
+    val particleCount = (12 + (energy * 18f).toInt()).coerceIn(12, 30)
+    val particles = remember(particleCount) { createParticles(particleCount) }
 
     // Primary drift animation (continuous rising)
     val driftTransition = rememberInfiniteTransition(label = "atmosphereDrift")
@@ -160,7 +162,7 @@ private fun DrawScope.drawParticle(
         else -> 1f
     }
 
-    val alpha = (particle.baseAlpha * pulseIntensity * edgeFade).coerceIn(0.01f, 0.28f)
+    val alpha = (particle.baseAlpha * pulseIntensity * edgeFade * (0.4f + energy * 1.5f)).coerceIn(0.01f, 0.45f)
 
     // Color: mix mood + secondary
     val color = if (particle.colorMix < 0.5f) {

@@ -64,6 +64,7 @@ import com.xsytrance.vaib.MainViewModel
 import com.xsytrance.vaib.audio.EqPreset
 import com.xsytrance.vaib.core.design.VaibAtmosphere
 import com.xsytrance.vaib.core.design.VaibColors
+import com.xsytrance.vaib.visualizer.VisualizerSurface
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -159,14 +160,26 @@ fun SoloDreamscapeScreen(
         }
     }
 
-    val atmosphere = VaibAtmosphere.Default
+    val atmosphere by viewModel.currentAtmosphere.collectAsState()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            // Tap: fire radial pulse at touch point
-            .pointerInput(Unit) {
+    ) {
+        // 1. OpenGL neon shader background — reactive to energy/beat
+        VisualizerSurface(
+            energy   = audioEnergy,
+            beat     = audioBeat,
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        // 2. Canvas overlay — touch-reactive, atmosphere-painted
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                // Tap: fire radial pulse at touch point
+                .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { offset ->
                         tapPosition    = offset
@@ -244,6 +257,7 @@ fun SoloDreamscapeScreen(
             )
         }
     }
+}
 }
 
 // ── Fullscreen Dreamdeck Visualizer ──────────────────────────────────

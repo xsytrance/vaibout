@@ -133,10 +133,11 @@ fun DiscoverScreen(
             .background(Color.Black)
             .systemBarsPadding(),
     ) {
-        // World-painted atmosphere
+        // World-painted atmosphere — energy drives particle life
         OrbitAtmosphereLayer(
             moodColor          = world.primaryColor,
             secondaryMoodColor = world.secondaryColor,
+            energy             = energy,
             modifier           = Modifier.fillMaxSize(),
         )
 

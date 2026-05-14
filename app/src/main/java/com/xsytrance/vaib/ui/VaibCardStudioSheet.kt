@@ -429,6 +429,7 @@ private fun VaibCardPreview(
 private fun CardPreviewWaveform(
     paint: TrackPaint,
     phase: Float,
+    energy: Float = 0.5f,
     modifier: Modifier = Modifier,
 ) {
     val barCount = 20
@@ -440,9 +441,10 @@ private fun CardPreviewWaveform(
             val speed  = 0.5f + (i % 4) * 0.2f
             val offset = i.toFloat() / barCount
             val raw    = abs(sin(((phase + offset) * speed * twoPi).toDouble())).toFloat()
-            val h      = (maxH * (0.12f + raw * 0.88f)).coerceAtLeast(1.5f)
+            val h      = (maxH * (0.12f + raw * 0.88f) * (0.5f + energy)).coerceAtLeast(1.5f)
+            val alpha  = (0.18f + raw * 0.22f + energy * 0.15f).coerceIn(0.1f, 0.55f)
             drawRect(
-                color   = paint.primaryColor.copy(alpha = 0.18f + raw * 0.22f),
+                color   = paint.primaryColor.copy(alpha = alpha),
                 topLeft = Offset(i * barW + 1f, maxH - h),
                 size    = Size((barW - 2f).coerceAtLeast(1f), h),
             )

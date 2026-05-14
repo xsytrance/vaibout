@@ -158,10 +158,11 @@ fun HomeScreen(
             modifier    = Modifier.fillMaxSize(),
         )
 
-        // Floating note particles
+        // Floating note particles — energy drives count and brightness
         OrbitAtmosphereLayer(
             moodColor          = atmosphere.primaryColor,
             secondaryMoodColor = atmosphere.secondaryColor,
+            energy             = energy,
             modifier           = Modifier.fillMaxSize(),
         )
 
