@@ -138,7 +138,7 @@ fun HomeScreen(
     val currentMood        by viewModel.currentMood.collectAsState()
     val hasTrack = trackUri != null
 
-    val atmosphere = VaibAtmosphere.Default
+    val atmosphere by viewModel.currentAtmosphere.collectAsState()
 
     var showSaveDialog       by remember { mutableStateOf(false) }
     var nameInput            by remember { mutableStateOf("") }

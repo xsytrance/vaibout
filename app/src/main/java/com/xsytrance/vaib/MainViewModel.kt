@@ -8,6 +8,7 @@ import com.xsytrance.vaib.audio.AudioPlayer
 import com.xsytrance.vaib.audio.AudioVisualizerAnalyzer
 import com.xsytrance.vaib.audio.EqController
 import com.xsytrance.vaib.audio.EqPreset
+import com.xsytrance.vaib.core.design.VaibAtmosphere
 import com.xsytrance.vaib.data.TrackPrefs
 import com.xsytrance.vaib.data.VaibDatabase
 import com.xsytrance.vaib.data.entities.VaibEntity
@@ -62,6 +63,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _currentMood = MutableStateFlow("")
     val currentMood: StateFlow<String> = _currentMood.asStateFlow()
+
+    private val _currentAtmosphere = MutableStateFlow(VaibAtmosphere.Default)
+    val currentAtmosphere: StateFlow<VaibAtmosphere> = _currentAtmosphere.asStateFlow()
 
     val savedVaibs: StateFlow<List<VaibEntity>> = vaibDao.observeAll()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -155,6 +159,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _currentPositionMs.value = 0L
         _durationMs.value = 0L
         _currentMood.value = ""
+        _currentAtmosphere.value = VaibAtmosphere.Default
         trackPrefs.save(uri, cleanName)
         audioPlayer.loadTrack(uri)
     }
@@ -195,6 +200,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _trackName.value = item.title
                     _playbackFraction.value = 0f
                     _currentMood.value = ""
+                    _currentAtmosphere.value = VaibAtmosphere.Default
                     trackPrefs.save(uri, item.title)
                     audioPlayer.prepareTrack(uri)
                     navigateTo(Screen.HOME)
@@ -247,6 +253,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         trackPrefs.save(uri, vaib.trackName)
         audioPlayer.prepareTrack(uri)
         _currentMood.value = vaib.mood
+        _currentAtmosphere.value = VaibAtmosphere.fromMood(vaib.mood)
         val preset = runCatching { EqPreset.valueOf(vaib.eqPreset) }.getOrDefault(EqPreset.FLAT)
         applyEqPreset(preset)
     }
