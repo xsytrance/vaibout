@@ -6,6 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.xsytrance.vaib.audio.AudioPlayer
 import com.xsytrance.vaib.audio.AudioVisualizerAnalyzer
+import com.xsytrance.vaib.audio.EqController
+import com.xsytrance.vaib.audio.EqPreset
 import com.xsytrance.vaib.data.TrackPrefs
 import com.xsytrance.vaib.data.VaibDatabase
 import com.xsytrance.vaib.data.entities.VaibEntity
@@ -25,10 +27,11 @@ enum class Screen { HOME, SOLO_DREAMSCAPE, DISCOVER }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val audioPlayer = AudioPlayer(application)
-    private val trackPrefs  = TrackPrefs(application)
-    private val analyzer    = AudioVisualizerAnalyzer()
-    private val vaibDao     = VaibDatabase.get(application).vaibDao()
+    private val audioPlayer  = AudioPlayer(application)
+    private val trackPrefs   = TrackPrefs(application)
+    private val analyzer     = AudioVisualizerAnalyzer()
+    private val eqController = EqController()
+    private val vaibDao      = VaibDatabase.get(application).vaibDao()
 
     val audioEnergy    = analyzer.energy
     val audioBeatPulse = analyzer.beatPulse
@@ -47,6 +50,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _playbackFraction = MutableStateFlow(0f)
     val playbackFraction: StateFlow<Float> = _playbackFraction.asStateFlow()
+
+    private val _currentEqPreset = MutableStateFlow(EqPreset.FLAT)
+    val currentEqPreset: StateFlow<EqPreset> = _currentEqPreset.asStateFlow()
 
     val savedVaibs: StateFlow<List<VaibEntity>> = vaibDao.observeAll()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -190,7 +196,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── vAIb save / recall ────────────────────────────────────────────
 
-    fun saveVaib(vaibName: String, mood: String) {
+    fun applyEqPreset(preset: EqPreset) {
+        _currentEqPreset.value = preset
+        eqController.apply(audioPlayer.audioSessionId, preset)
+    }
+
+    fun saveVaib(vaibName: String, mood: String, eqPreset: EqPreset = _currentEqPreset.value) {
         val uri = _trackUri.value ?: return
         val sourceType = if (uri.scheme == "https" || uri.scheme == "http")
             "INTERNET_ARCHIVE" else "LOCAL"
@@ -205,6 +216,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     themeId         = "OLED_CYAN",
                     createdAt       = System.currentTimeMillis(),
                     sourceType      = sourceType,
+                    eqPreset        = eqPreset.name,
                 )
             )
         }
@@ -217,6 +229,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _playbackFraction.value = 0f
         trackPrefs.save(uri, vaib.trackName)
         audioPlayer.prepareTrack(uri)
+        val preset = runCatching { EqPreset.valueOf(vaib.eqPreset) }.getOrDefault(EqPreset.FLAT)
+        applyEqPreset(preset)
     }
 
     fun deleteVaib(vaib: VaibEntity) {
@@ -244,6 +258,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         analyzer.stop()
+        eqController.release()
         audioPlayer.release()
     }
 }

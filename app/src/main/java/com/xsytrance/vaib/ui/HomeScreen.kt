@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xsytrance.vaib.MainViewModel
+import com.xsytrance.vaib.audio.EqPreset
 import com.xsytrance.vaib.core.design.VaibColors
 import com.xsytrance.vaib.data.entities.VaibEntity
 import com.xsytrance.vaib.vaib.VaibCard
@@ -74,12 +75,14 @@ fun HomeScreen(
     val isBuffering      by viewModel.isBuffering.collectAsState()
     val playbackFraction by viewModel.playbackFraction.collectAsState()
     val savedVaibs       by viewModel.savedVaibs.collectAsState()
+    val currentEqPreset  by viewModel.currentEqPreset.collectAsState()
     val hasTrack = trackUri != null
 
-    var showSaveDialog    by remember { mutableStateOf(false) }
-    var nameInput         by remember { mutableStateOf("") }
-    var selectedMood      by remember { mutableStateOf("") }
-    var pendingDeleteVaib by remember { mutableStateOf<VaibEntity?>(null) }
+    var showSaveDialog     by remember { mutableStateOf(false) }
+    var nameInput          by remember { mutableStateOf("") }
+    var selectedMood       by remember { mutableStateOf("") }
+    var selectedEqPreset   by remember { mutableStateOf(EqPreset.FLAT) }
+    var pendingDeleteVaib  by remember { mutableStateOf<VaibEntity?>(null) }
 
     LazyColumn(
         modifier = Modifier
@@ -175,10 +178,13 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f),
                 )
             }
-            if (hasTrack) {
-                Spacer(modifier = Modifier.height(4.dp))
-                TextButton(
-                    onClick  = { showSaveDialog = true },
+                if (hasTrack) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    TextButton(
+                        onClick  = {
+                            selectedEqPreset = currentEqPreset
+                            showSaveDialog = true
+                        },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
@@ -258,6 +264,7 @@ fun HomeScreen(
             showSaveDialog = false
             nameInput = ""
             selectedMood = ""
+            selectedEqPreset = EqPreset.FLAT
         }
         AlertDialog(
             onDismissRequest  = dismiss,
@@ -325,6 +332,47 @@ fun HomeScreen(
                             )
                         }
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "EQ",
+                        color         = VaibColors.TextSoft.copy(alpha = 0.6f),
+                        fontSize      = 10.sp,
+                        letterSpacing = 1.5.sp,
+                        fontWeight    = FontWeight.SemiBold,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        EqPreset.entries.forEach { preset ->
+                            FilterChip(
+                                selected = selectedEqPreset == preset,
+                                onClick  = {
+                                    selectedEqPreset = preset
+                                    // Live-preview: apply immediately if audio is active.
+                                    viewModel.applyEqPreset(preset)
+                                },
+                                label = {
+                                    Text(preset.label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = VaibColors.VioletGlow,
+                                    selectedLabelColor     = Color.White,
+                                    containerColor         = Color.White.copy(alpha = 0.08f),
+                                    labelColor             = Color.White.copy(alpha = 0.75f),
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled             = true,
+                                    selected            = selectedEqPreset == preset,
+                                    borderColor         = Color.White.copy(alpha = 0.12f),
+                                    selectedBorderColor = Color.Transparent,
+                                ),
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -333,6 +381,7 @@ fun HomeScreen(
                         viewModel.saveVaib(
                             nameInput.ifEmpty { trackName ?: "Untitled vAIb" },
                             selectedMood,
+                            selectedEqPreset,
                         )
                         dismiss()
                     },

@@ -15,5 +15,7 @@ data class VaibEntity(
     val themeId: String,
     val createdAt: Long,
     /** "LOCAL" for SAF content:// URIs, "INTERNET_ARCHIVE" for https:// streams. */
-    @ColumnInfo(defaultValue = "LOCAL") val sourceType: String = "LOCAL",
+    @ColumnInfo(defaultValue = "LOCAL")  val sourceType: String = "LOCAL",
+    /** Stored EqPreset enum name, e.g. "FLAT", "DEEP_BASS". */
+    @ColumnInfo(defaultValue = "FLAT")   val eqPreset:   String = "FLAT",
 )
