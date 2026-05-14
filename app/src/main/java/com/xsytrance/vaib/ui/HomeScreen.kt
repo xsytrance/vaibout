@@ -130,8 +130,11 @@ fun HomeScreen(
     val currentMood        by viewModel.currentMood.collectAsState()
     val hasTrack = trackUri != null
 
-    val atmosphere by viewModel.currentAtmosphere.collectAsState()
-    val queueReady by viewModel.queueReady.collectAsState()
+    val atmosphere   by viewModel.currentAtmosphere.collectAsState()
+    val queueReady   by viewModel.queueReady.collectAsState()
+    val beatPulse    by viewModel.visualSignal.beatPulse.collectAsState()
+    val energy       by viewModel.visualSignal.energy.collectAsState()
+    val breathValue  = ambientBreathAnimation(durationMs = 4_000)
 
     var showSaveDialog       by remember { mutableStateOf(false) }
     var nameInput            by remember { mutableStateOf("") }
@@ -145,11 +148,12 @@ fun HomeScreen(
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        // Track-painted background gradient
+        // Track-painted background gradient — breathes with energy
         DreamdeckBackground(
-            atmosphere = atmosphere,
-            hasTrack   = hasTrack,
-            modifier   = Modifier.fillMaxSize(),
+            atmosphere  = atmosphere,
+            hasTrack    = hasTrack,
+            energyGlow  = energyGlow(viewModel.visualSignal.energy, breathValue),
+            modifier    = Modifier.fillMaxSize(),
         )
 
         // Floating note particles
@@ -1096,20 +1100,24 @@ private fun KimiDebugFooter(atmosphere: VaibAtmosphere) {
 private fun DreamdeckBackground(
     atmosphere: VaibAtmosphere,
     hasTrack: Boolean,
+    energyGlow: Float,
     modifier: Modifier = Modifier,
 ) {
     val primary   = atmosphere.primaryColor
     val secondary = atmosphere.secondaryColor
     val bgAccent  = atmosphere.backgroundAccent
+    val playAlpha = (0.03f + energyGlow * 0.06f).coerceIn(0.02f, 0.12f)
+    val pauseAlpha = 0.03f
 
     Box(modifier = modifier.background(Color.Black)) {
-        // Subtle radial gradient from center — painted by track atmosphere
+        // Breathing radial gradient — energy drives intensity when playing
         Canvas(modifier = Modifier.fillMaxSize()) {
+            val alphaMul = if (hasTrack) playAlpha else pauseAlpha
             drawRect(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        primary.copy(alpha   = if (hasTrack) 0.06f else 0.03f),
-                        secondary.copy(alpha = if (hasTrack) 0.03f else 0.015f),
+                        primary.copy(alpha   = alphaMul * 2f),
+                        secondary.copy(alpha = alphaMul),
                         bgAccent.copy(alpha   = 0.80f),
                     ),
                     center = Offset(size.width * 0.5f, size.height * 0.35f),
@@ -1150,10 +1158,11 @@ private fun DreamdeckHero(
             .height(340.dp)
             .clip(RoundedCornerShape(22.dp)),
     ) {
-        // Living visualizer fills the hero
+        // Living visualizer fills the hero — reacts to energy
         CockpitVisualizer(
             isPlaying  = isPlaying,
             atmosphere = atmosphere,
+            energy     = energy,
             modifier   = Modifier.fillMaxSize(),
         )
 
@@ -1230,9 +1239,14 @@ private fun DreamdeckHero(
 
             val bgColor   = if (hasTrack) atmosphere.primaryColor else Color.White.copy(0.07f)
             val iconColor = if (hasTrack) Color.Black else Color.White.copy(0.18f)
+            // Beat-pulsing glow ring when playing
+            val glowAlpha = if (isPlaying) (beatPulse * 0.35f).coerceIn(0f, 0.35f) else 0f
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .background(atmosphere.primaryColor.copy(alpha = glowAlpha))
+                    .padding(4.dp)
                     .clip(CircleShape)
                     .background(bgColor)
                     .clickable(enabled = hasTrack, onClick = onPlayPause),
@@ -1255,17 +1269,18 @@ private fun DreamdeckHero(
                     .fillMaxWidth()
                     .padding(horizontal = 0.dp),
             ) {
+                val progressGlow = (0.55f + beatPulse * 0.30f).coerceIn(0.55f, 1f)
                 if (isBuffering) {
                     LinearProgressIndicator(
                         modifier   = Modifier.fillMaxWidth().height(2.dp),
-                        color      = atmosphere.primaryColor.copy(alpha = 0.55f),
+                        color      = atmosphere.primaryColor.copy(alpha = progressGlow),
                         trackColor = Color.White.copy(alpha = 0.06f),
                     )
                 } else {
                     LinearProgressIndicator(
                         progress   = { playbackFraction },
                         modifier   = Modifier.fillMaxWidth().height(2.dp),
-                        color      = atmosphere.primaryColor.copy(alpha = 0.75f),
+                        color      = atmosphere.primaryColor.copy(alpha = progressGlow),
                         trackColor = Color.White.copy(alpha = 0.06f),
                         strokeCap  = StrokeCap.Round,
                     )
@@ -1281,6 +1296,7 @@ private fun DreamdeckHero(
 private fun CockpitVisualizer(
     isPlaying: Boolean,
     atmosphere: VaibAtmosphere,
+    energy: Float,
     modifier: Modifier = Modifier,
 ) {
     val transition = rememberInfiniteTransition(label = "cockpitViz")
@@ -1290,12 +1306,13 @@ private fun CockpitVisualizer(
         label = "cockpitVizPhase",
     )
     val twoPi      = (2.0 * PI).toFloat()
-    val multiplier = if (isPlaying) 1f else 0.20f
+    // Energy drives bar height: 0.2f paused baseline → 1.0f+ when energetic
+    val multiplier = if (isPlaying) (0.35f + energy * 1.2f).coerceIn(0.35f, 1.8f) else 0.18f
     val barCount   = 40
 
     Canvas(modifier = modifier) {
         val barW = size.width / barCount
-        val maxH = size.height * 0.65f
+        val maxH = size.height * 0.70f
         for (i in 0 until barCount) {
             val t        = i.toFloat() / (barCount - 1).coerceAtLeast(1)
             val mountain = sin(t * PI.toFloat()).toFloat()
@@ -1304,9 +1321,13 @@ private fun CockpitVisualizer(
             val raw      = kotlin.math.abs(
                 kotlin.math.sin(((phase + offset) * speed * twoPi).toDouble())
             ).toFloat()
-            val h        = (maxH * multiplier * (mountain * 0.55f + raw * 0.45f)).coerceAtLeast(2f)
+            // Energy pops individual bars: higher energy = more variation
+            val energyPop = 0.45f + energy * raw * 0.55f
+            val h        = (maxH * multiplier * (mountain * 0.40f + energyPop)).coerceAtLeast(2f)
+            // Alpha also breathes with energy
+            val alpha    = (0.10f + energy * 0.20f + raw * 0.25f).coerceIn(0.06f, 0.55f)
             val color    = lerp(atmosphere.primaryColor, atmosphere.secondaryColor, t)
-                .copy(alpha = 0.12f + raw * 0.22f)
+                .copy(alpha = alpha)
             drawRect(
                 color   = color,
                 topLeft = Offset(i * barW + 1f, size.height - h),
@@ -1332,7 +1353,8 @@ private fun CockpitActions(
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // vAIb out! — dark glassy cockpit button with beat pulse
-        val baseBorderAlpha = if (hasTrack) 0.45f else 0.12f
+        val baseBorderAlpha = if (hasTrack) 0.55f else 0.12f
+        val breathPulse = (0.5f + 0.5f * sin(breathValue * 2.0 * PI)).toFloat() * 0.15f
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1340,8 +1362,8 @@ private fun CockpitActions(
                 .clip(RoundedCornerShape(14.dp))
                 .background(Color(0xFF0A0A0A))
                 .border(
-                    BorderStroke(1.dp, atmosphere.primaryColor.copy(
-                        alpha = (baseBorderAlpha + pulseAlpha).coerceIn(0f, 1f)
+                    BorderStroke(1.5.dp, atmosphere.primaryColor.copy(
+                        alpha = (baseBorderAlpha + pulseAlpha + breathPulse).coerceIn(0f, 1f)
                     )),
                     RoundedCornerShape(14.dp),
                 )
@@ -1392,37 +1414,71 @@ private fun CockpitActions(
 
 @Composable
 private fun KimiLabStamp(atmosphere: VaibAtmosphere) {
-    Row(
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment     = Alignment.CenterVertically,
-        modifier              = Modifier.fillMaxWidth(),
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier            = Modifier.fillMaxWidth(),
     ) {
+        // KIMI SIGNAL PASS stamp
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(4.dp))
                 .background(Color(0xFF0A0A0A))
                 .border(
-                    BorderStroke(0.5.dp, atmosphere.primaryColor.copy(alpha = 0.20f)),
+                    BorderStroke(0.8.dp, atmosphere.primaryColor.copy(alpha = 0.35f)),
                     RoundedCornerShape(4.dp),
                 )
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+                .padding(horizontal = 8.dp, vertical = 3.dp),
         ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "KIMI SIGNAL PASS",
+                    color         = atmosphere.primaryColor.copy(alpha = 0.75f),
+                    fontSize      = 8.sp,
+                    fontWeight    = FontWeight.ExtraBold,
+                    letterSpacing = 1.0.sp,
+                )
+                Text(
+                    "visual-signal-02",
+                    color         = VaibColors.TextSoft.copy(alpha = 0.35f),
+                    fontSize      = 6.sp,
+                    fontWeight    = FontWeight.Medium,
+                    letterSpacing = 0.4.sp,
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        // Original lab identity
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment     = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xFF0A0A0A))
+                    .border(
+                        BorderStroke(0.5.dp, atmosphere.primaryColor.copy(alpha = 0.15f)),
+                        RoundedCornerShape(4.dp),
+                    )
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            ) {
+                Text(
+                    "KIMI DREAMDECK LAB",
+                    color         = atmosphere.primaryColor.copy(alpha = 0.40f),
+                    fontSize      = 7.sp,
+                    fontWeight    = FontWeight.Bold,
+                    letterSpacing = 0.8.sp,
+                )
+            }
+            Spacer(Modifier.width(4.dp))
             Text(
-                "KIMI DREAMDECK LAB",
-                color         = atmosphere.primaryColor.copy(alpha = 0.50f),
+                "kimi-experiment-dreamdeck",
+                color         = VaibColors.TextSoft.copy(alpha = 0.18f),
                 fontSize      = 7.sp,
-                fontWeight    = FontWeight.Bold,
-                letterSpacing = 0.8.sp,
+                fontWeight    = FontWeight.Medium,
+                letterSpacing = 0.2.sp,
             )
         }
-        Spacer(Modifier.width(4.dp))
-        Text(
-            "kimi-experiment-dreamdeck",
-            color         = VaibColors.TextSoft.copy(alpha = 0.18f),
-            fontSize      = 7.sp,
-            fontWeight    = FontWeight.Medium,
-            letterSpacing = 0.2.sp,
-        )
     }
 }
 

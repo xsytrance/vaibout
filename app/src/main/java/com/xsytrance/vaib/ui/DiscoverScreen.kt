@@ -84,6 +84,9 @@ fun DiscoverScreen(
     val savedVaibs    by viewModel.savedVaibs.collectAsState()
     val sessionQueue  by viewModel.sessionQueue.collectAsState()
     val queueReady    by viewModel.queueReady.collectAsState()
+    val beatPulse     by viewModel.visualSignal.beatPulse.collectAsState()
+    val energy        by viewModel.visualSignal.energy.collectAsState()
+    val breathValue   = com.xsytrance.vaib.core.design.ambientBreathAnimation(durationMs = 4_000)
 
     var searchQuery by remember { mutableStateOf("") }
     var activeWorld by remember { mutableStateOf<OrbitWorld>(OrbitWorld.ALL) }
@@ -192,9 +195,9 @@ fun DiscoverScreen(
                 Spacer(Modifier.height(12.dp))
             }
 
-            // ── Glow divider ──────────────────────────────────────────
+            // ── Glow divider — pulses with energy ─────────────────────
             item {
-                WorldGlowDivider(world = world)
+                WorldGlowDivider(world = world, energy = energy)
                 Spacer(Modifier.height(12.dp))
             }
 
@@ -496,7 +499,9 @@ private fun OrbitSearchCapsule(
 // ── World glow divider ────────────────────────────────────────────────
 
 @Composable
-private fun WorldGlowDivider(world: OrbitWorld) {
+private fun WorldGlowDivider(world: OrbitWorld, energy: Float) {
+    val baseAlpha = 0.30f
+    val glowAlpha = (baseAlpha + energy * 0.25f).coerceIn(0.15f, 0.60f)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -508,8 +513,8 @@ private fun WorldGlowDivider(world: OrbitWorld) {
                 brush = Brush.horizontalGradient(
                     listOf(
                         world.primaryColor.copy(alpha = 0.0f),
-                        world.primaryColor.copy(alpha = 0.30f),
-                        world.secondaryColor.copy(alpha = 0.20f),
+                        world.primaryColor.copy(alpha = glowAlpha),
+                        world.secondaryColor.copy(alpha = glowAlpha * 0.7f),
                         world.primaryColor.copy(alpha = 0.0f),
                     ),
                 ),
@@ -555,16 +560,17 @@ private fun OrbitSongCard(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment   = Alignment.CenterVertically,
     ) {
-        // Mini waveform thumbnail
+        // Mini waveform thumbnail — pulses with energy
         Box(
             modifier = Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(cardPrimary.copy(alpha = 0.10f)),
+                .background(cardPrimary.copy(alpha = 0.10f + energy * 0.08f)),
             contentAlignment = Alignment.Center,
         ) {
             SongCardMiniWaveform(
-                color = cardPrimary.copy(alpha = 0.35f * dimAlpha),
+                color    = cardPrimary.copy(alpha = (0.30f + energy * 0.25f).coerceIn(0.15f, 0.60f) * dimAlpha),
+                energy   = energy,
             )
         }
 
@@ -812,7 +818,7 @@ private fun QueueReadyChip() {
 // ── Song card mini waveform ───────────────────────────────────────────
 
 @Composable
-private fun SongCardMiniWaveform(color: Color) {
+private fun SongCardMiniWaveform(color: Color, energy: Float) {
     val transition = rememberInfiniteTransition(label = "songCardWave")
     val phase by transition.animateFloat(
         0f, 1f,
@@ -829,7 +835,8 @@ private fun SongCardMiniWaveform(color: Color) {
             val speed = 0.5f + (i % 3) * 0.3f
             val offset = i.toFloat() / barCount
             val raw = abs(sin(((phase + offset) * speed * twoPi).toDouble())).toFloat()
-            val h = (maxH * (0.2f + raw * 0.8f)).coerceAtLeast(1.5f)
+            // Energy drives bar height variation
+            val h = (maxH * (0.2f + raw * 0.8f) * (0.6f + energy * 0.8f)).coerceAtLeast(1.5f)
             drawRect(
                 color   = color,
                 topLeft = Offset(i * barW * 2f, maxH - h),
