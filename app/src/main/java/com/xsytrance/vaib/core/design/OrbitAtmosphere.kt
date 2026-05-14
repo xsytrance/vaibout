@@ -149,7 +149,7 @@ private fun DrawScope.drawParticle(
 
     // Beat pulse: brief brightening
     val pulseIntensity = if (particle.pulseReactive) {
-        val pulseWave = abs(sin(pulsePhase * PI * 2f))
+        val pulseWave = abs(sin(pulsePhase * PI * 2f)).toFloat()
         1f + pulseWave * 0.6f // 1.0x to 1.6x alpha
     } else 1f
 
