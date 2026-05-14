@@ -83,6 +83,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         restorePersistedTrack(application)
+        prepareStartupTrack(application)
         startPositionTicker()
         observePlaybackEnd()
     }
@@ -110,6 +111,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!isRemote) {
             audioPlayer.prepareTrack(savedUri)
         }
+    }
+
+    // ── Headphone-safe startup playback ───────────────────────────────
+
+    private fun prepareStartupTrack(application: Application) {
+        val uri = _trackUri.value ?: return
+        val headphones = AudioOutputDetector.hasPersonalAudioOutput(application)
+        val isRemote = uri.scheme == "https" || uri.scheme == "http"
+
+        if (headphones) {
+            // Safe to autoplay — prepare remote tracks, then play
+            if (isRemote) {
+                audioPlayer.prepareTrack(uri)
+            }
+            audioPlayer.player.play()
+        }
+        // If no headphones: local tracks are already prepared (paused),
+        // remote tracks remain unprepared to avoid background network
     }
 
     // ── Position ticker ───────────────────────────────────────────────

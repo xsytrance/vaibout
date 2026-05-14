@@ -162,22 +162,27 @@ fun HomeScreen(
             // ── Header ────────────────────────────────────────────────
             item {
                 Spacer(Modifier.height(32.dp))
-                Text(
-                    "vAIb out!",
-                    color         = Color.White,
-                    fontSize      = 32.sp,
-                    fontWeight    = FontWeight.ExtraBold,
-                    letterSpacing = (-1.0).sp,
-                )
-                Text(
-                    "LET'S CHILL",
-                    color         = atmosphere.primaryColor,
-                    fontSize      = 10.sp,
-                    fontWeight    = FontWeight.SemiBold,
-                    letterSpacing = 2.2.sp,
-                )
-                Spacer(Modifier.height(10.dp))
-                KimiLabBadge(atmosphere = atmosphere)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier            = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "vAIb out!",
+                        color         = Color.White,
+                        fontSize      = 32.sp,
+                        fontWeight    = FontWeight.ExtraBold,
+                        letterSpacing = (-1.0).sp,
+                    )
+                    Text(
+                        "let's chill",
+                        color         = atmosphere.primaryColor,
+                        fontSize      = 10.sp,
+                        fontWeight    = FontWeight.SemiBold,
+                        letterSpacing = 2.2.sp,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    KimiLabBadge(atmosphere = atmosphere)
+                }
                 Spacer(Modifier.height(20.dp))
             }
 
