@@ -197,12 +197,6 @@ fun HomeScreen(
                 Spacer(Modifier.height(14.dp))
             }
 
-            // ── Standalone visualizer card ────────────────────────────
-            item {
-                VisualizerCard(isPlaying = isPlaying, atmosphere = atmosphere)
-                Spacer(Modifier.height(20.dp))
-            }
-
             // ── Transport controls ────────────────────────────────────
             item {
                 TransportControls(
