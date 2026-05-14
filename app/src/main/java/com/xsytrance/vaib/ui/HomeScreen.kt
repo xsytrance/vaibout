@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xsytrance.vaib.MainViewModel
 import com.xsytrance.vaib.audio.EqPreset
+import com.xsytrance.vaib.core.design.OrbitAtmosphereLayer
 import com.xsytrance.vaib.core.design.VaibAtmosphere
 import com.xsytrance.vaib.core.design.VaibColors
 import com.xsytrance.vaib.data.entities.VaibEntity
@@ -143,7 +144,19 @@ fun HomeScreen(
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        AmbientBackground(atmosphere = atmosphere, modifier = Modifier.fillMaxSize())
+        // Track-painted background gradient
+        DreamdeckBackground(
+            atmosphere = atmosphere,
+            hasTrack   = hasTrack,
+            modifier   = Modifier.fillMaxSize(),
+        )
+
+        // Floating note particles
+        OrbitAtmosphereLayer(
+            moodColor          = atmosphere.primaryColor,
+            secondaryMoodColor = atmosphere.secondaryColor,
+            modifier           = Modifier.fillMaxSize(),
+        )
 
         LazyColumn(
             modifier       = Modifier.fillMaxSize().systemBarsPadding(),
@@ -152,7 +165,7 @@ fun HomeScreen(
 
             // ── Header ────────────────────────────────────────────────
             item {
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(24.dp))
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier            = Modifier.fillMaxWidth(),
@@ -160,9 +173,9 @@ fun HomeScreen(
                     Text(
                         "vAIb out!",
                         color         = Color.White,
-                        fontSize      = 32.sp,
+                        fontSize      = 28.sp,
                         fontWeight    = FontWeight.ExtraBold,
-                        letterSpacing = (-1.0).sp,
+                        letterSpacing = (-0.8).sp,
                     )
                     Text(
                         "let's chill",
@@ -171,15 +184,13 @@ fun HomeScreen(
                         fontWeight    = FontWeight.SemiBold,
                         letterSpacing = 2.2.sp,
                     )
-                    Spacer(Modifier.height(10.dp))
-                    KimiLabBadge(atmosphere = atmosphere)
                 }
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(16.dp))
             }
 
-            // ── Now Playing hero card ─────────────────────────────────
+            // ── Dreamdeck Hero: visualizer + floating controls + track ──
             item {
-                NowPlayingCard(
+                DreamdeckHero(
                     trackName        = trackName,
                     trackUri         = trackUri,
                     isPlaying        = isPlaying,
@@ -191,48 +202,21 @@ fun HomeScreen(
                     currentEqPreset  = currentEqPreset,
                     currentMood      = currentMood,
                     atmosphere       = atmosphere,
+                    onPlayPause      = viewModel::togglePlayPause,
                 )
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(16.dp))
             }
 
-            // ── Transport controls ────────────────────────────────────
+            // ── Cockpit actions ───────────────────────────────────────
             item {
-                TransportControls(
-                    isPlaying   = isPlaying,
-                    hasTrack    = hasTrack,
-                    atmosphere  = atmosphere,
-                    onPlayPause = viewModel::togglePlayPause,
+                CockpitActions(
+                    hasTrack         = hasTrack,
+                    atmosphere       = atmosphere,
+                    onVaibOut        = onEnterDreamscape,
+                    onPickTrack      = onPickTrack,
+                    onDiscover       = onDiscoverMusic,
                 )
-                Spacer(Modifier.height(18.dp))
-            }
-
-            // ── vAIb out! hero button ─────────────────────────────────
-            item {
-                VaibOutButton(
-                    hasTrack  = hasTrack,
-                    onClick   = onEnterDreamscape,
-                )
-                Spacer(Modifier.height(12.dp))
-            }
-
-            // ── Secondary actions ─────────────────────────────────────
-            item {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    VaibOutlinedButton(
-                        label    = if (hasTrack) "Change Track" else "Choose Track",
-                        onClick  = onPickTrack,
-                        modifier = Modifier.weight(1f),
-                    )
-                    VaibOutlinedButton(
-                        label    = "Discover",
-                        onClick  = onDiscoverMusic,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
             }
 
             // ── Saved vAIbs ───────────────────────────────────────────
@@ -245,8 +229,8 @@ fun HomeScreen(
                     ) {
                         Text(
                             "Saved vAIbs",
-                            color      = Color.White.copy(alpha = 0.75f),
-                            fontSize   = 15.sp,
+                            color      = Color.White.copy(alpha = 0.70f),
+                            fontSize   = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                         )
                         if (hasTrack) {
@@ -260,15 +244,15 @@ fun HomeScreen(
                             ) {
                                 Text(
                                     "⊕  SAVE AS VAIB",
-                                    color         = atmosphere.primaryColor.copy(alpha = 0.80f),
-                                    fontSize      = 10.sp,
+                                    color         = atmosphere.primaryColor.copy(alpha = 0.70f),
+                                    fontSize      = 9.sp,
                                     fontWeight    = FontWeight.SemiBold,
                                     letterSpacing = 0.8.sp,
                                 )
                             }
                         }
                     }
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(8.dp))
                 }
             }
 
@@ -286,24 +270,24 @@ fun HomeScreen(
                             )
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(8.dp))
                 }
             } else if (hasTrack) {
                 item {
                     Text(
                         "No vAIbs saved yet. Hit ⊕ SAVE AS VAIB to capture this moment.",
-                        color      = VaibColors.TextSoft.copy(alpha = 0.36f),
-                        fontSize   = 12.sp,
-                        lineHeight = 18.sp,
+                        color      = VaibColors.TextSoft.copy(alpha = 0.28f),
+                        fontSize   = 11.sp,
+                        lineHeight = 16.sp,
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(8.dp))
                 }
             }
 
-            // ── Kimi experiment footer ─────────────────────────────────
+            // ── Kimi lab stamp (small, bottom) ────────────────────────
             item {
-                Spacer(Modifier.height(24.dp))
-                KimiDebugFooter(atmosphere = atmosphere)
+                Spacer(Modifier.height(12.dp))
+                KimiLabStamp(atmosphere = atmosphere)
             }
         }
     }
@@ -1181,6 +1165,337 @@ private fun KimiDebugFooter(atmosphere: VaibAtmosphere) {
             fontSize      = 7.sp,
             fontWeight    = FontWeight.Medium,
             letterSpacing = 0.3.sp,
+        )
+    }
+}
+
+// ── Dreamdeck Cockpit: Background ─────────────────────────────────────
+
+@Composable
+private fun DreamdeckBackground(
+    atmosphere: VaibAtmosphere,
+    hasTrack: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val primary   = atmosphere.primaryColor
+    val secondary = atmosphere.secondaryColor
+    val bgAccent  = atmosphere.backgroundAccent
+
+    Box(modifier = modifier.background(Color.Black)) {
+        // Subtle radial gradient from center — painted by track atmosphere
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawRect(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        primary.copy(alpha   = if (hasTrack) 0.06f else 0.03f),
+                        secondary.copy(alpha = if (hasTrack) 0.03f else 0.015f),
+                        bgAccent.copy(alpha   = 0.80f),
+                    ),
+                    center = Offset(size.width * 0.5f, size.height * 0.35f),
+                    radius = size.width * 0.8f,
+                ),
+            )
+        }
+    }
+}
+
+// ── Dreamdeck Cockpit: Hero ───────────────────────────────────────────
+
+@Composable
+private fun DreamdeckHero(
+    trackName: String?,
+    trackUri: Uri?,
+    isPlaying: Boolean,
+    isBuffering: Boolean,
+    playbackFraction: Float,
+    currentPositionMs: Long,
+    durationMs: Long,
+    hasTrack: Boolean,
+    currentEqPreset: EqPreset,
+    currentMood: String,
+    atmosphere: VaibAtmosphere,
+    onPlayPause: () -> Unit,
+) {
+    val subtitle = when {
+        currentMood.isNotEmpty() -> currentMood
+        trackUri?.scheme == "https" || trackUri?.scheme == "http" -> "Internet Archive"
+        hasTrack -> "Local file"
+        else -> ""
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(340.dp)
+            .clip(RoundedCornerShape(22.dp)),
+    ) {
+        // Living visualizer fills the hero
+        CockpitVisualizer(
+            isPlaying  = isPlaying,
+            atmosphere = atmosphere,
+            modifier   = Modifier.fillMaxSize(),
+        )
+
+        // Soft gradient overlay at bottom for text readability
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .align(Alignment.BottomCenter)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)),
+                    ),
+                ),
+        )
+
+        // Track info overlay at bottom
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+        ) {
+            Text(
+                text       = trackName ?: "Nothing playing",
+                color      = if (hasTrack) Color.White else VaibColors.TextSoft.copy(0.45f),
+                fontSize   = if (hasTrack) 18.sp else 14.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines   = 1,
+                overflow   = TextOverflow.Ellipsis,
+                letterSpacing = (-0.3).sp,
+            )
+            if (subtitle.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text      = subtitle,
+                    color     = atmosphere.primaryColor.copy(alpha = 0.65f),
+                    fontSize  = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+            // Compact chips row
+            val showEq   = currentEqPreset != EqPreset.FLAT
+            val showMood = currentMood.isNotEmpty()
+            if (showEq || showMood) {
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (showEq) {
+                        AtmosphereChip(
+                            label = currentEqPreset.label,
+                            color = atmosphere.secondaryColor,
+                        )
+                    }
+                    if (showMood) {
+                        AtmosphereChip(
+                            label = currentMood,
+                            color = atmosphere.primaryColor,
+                        )
+                    }
+                }
+            }
+        }
+
+        // Floating transport controls centered
+        Row(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(bottom = 20.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment     = Alignment.CenterVertically,
+        ) {
+            TransportSideButton { SkipPrevIcon(Modifier.size(20.dp)) }
+
+            Spacer(Modifier.width(24.dp))
+
+            val bgColor   = if (hasTrack) atmosphere.primaryColor else Color.White.copy(0.07f)
+            val iconColor = if (hasTrack) Color.Black else Color.White.copy(0.18f)
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(bgColor)
+                    .clickable(enabled = hasTrack, onClick = onPlayPause),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (isPlaying) PauseIcon(Modifier.size(24.dp), iconColor)
+                else           PlayIcon (Modifier.size(24.dp), iconColor)
+            }
+
+            Spacer(Modifier.width(24.dp))
+
+            TransportSideButton { SkipNextIcon(Modifier.size(20.dp)) }
+        }
+
+        // Progress line at very bottom
+        if (hasTrack) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 0.dp),
+            ) {
+                if (isBuffering) {
+                    LinearProgressIndicator(
+                        modifier   = Modifier.fillMaxWidth().height(2.dp),
+                        color      = atmosphere.primaryColor.copy(alpha = 0.55f),
+                        trackColor = Color.White.copy(alpha = 0.06f),
+                    )
+                } else {
+                    LinearProgressIndicator(
+                        progress   = { playbackFraction },
+                        modifier   = Modifier.fillMaxWidth().height(2.dp),
+                        color      = atmosphere.primaryColor.copy(alpha = 0.75f),
+                        trackColor = Color.White.copy(alpha = 0.06f),
+                        strokeCap  = StrokeCap.Round,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── Cockpit visualizer (full-bleed waveform field) ─────────────────────
+
+@Composable
+private fun CockpitVisualizer(
+    isPlaying: Boolean,
+    atmosphere: VaibAtmosphere,
+    modifier: Modifier = Modifier,
+) {
+    val transition = rememberInfiniteTransition(label = "cockpitViz")
+    val phase by transition.animateFloat(
+        0f, 1f,
+        infiniteRepeatable(tween(3_600, easing = LinearEasing), RepeatMode.Restart),
+        label = "cockpitVizPhase",
+    )
+    val twoPi      = (2.0 * PI).toFloat()
+    val multiplier = if (isPlaying) 1f else 0.20f
+    val barCount   = 40
+
+    Canvas(modifier = modifier) {
+        val barW = size.width / barCount
+        val maxH = size.height * 0.65f
+        for (i in 0 until barCount) {
+            val t        = i.toFloat() / (barCount - 1).coerceAtLeast(1)
+            val mountain = sin(t * PI.toFloat()).toFloat()
+            val speed    = 0.45f + (i % 5).toFloat() * 0.18f + (i % 3).toFloat() * 0.10f
+            val offset   = i.toFloat() / barCount
+            val raw      = kotlin.math.abs(
+                kotlin.math.sin(((phase + offset) * speed * twoPi).toDouble())
+            ).toFloat()
+            val h        = (maxH * multiplier * (mountain * 0.55f + raw * 0.45f)).coerceAtLeast(2f)
+            val color    = lerp(atmosphere.primaryColor, atmosphere.secondaryColor, t)
+                .copy(alpha = 0.12f + raw * 0.22f)
+            drawRect(
+                color   = color,
+                topLeft = Offset(i * barW + 1f, size.height - h),
+                size    = Size((barW - 2f).coerceAtLeast(1f), h),
+            )
+        }
+    }
+}
+
+// ── Cockpit Actions ────────────────────────────────────────────────────
+
+@Composable
+private fun CockpitActions(
+    hasTrack: Boolean,
+    atmosphere: VaibAtmosphere,
+    onVaibOut: () -> Unit,
+    onPickTrack: () -> Unit,
+    onDiscover: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // vAIb out! — dark glassy cockpit button
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color(0xFF0A0A0A))
+                .border(
+                    BorderStroke(1.dp, atmosphere.primaryColor.copy(
+                        alpha = if (hasTrack) 0.45f else 0.12f
+                    )),
+                    RoundedCornerShape(14.dp),
+                )
+                .clickable(enabled = hasTrack, onClick = onVaibOut),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "vAIb out!",
+                    color      = if (hasTrack) atmosphere.primaryColor.copy(alpha = 0.90f)
+                                else VaibColors.TextSoft.copy(alpha = 0.25f),
+                    fontSize   = 16.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.2.sp,
+                )
+                if (hasTrack) {
+                    Text(
+                        "save this atmosphere",
+                        color      = VaibColors.TextSoft.copy(alpha = 0.30f),
+                        fontSize   = 8.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.2.sp,
+                    )
+                }
+            }
+        }
+
+        // Navigation row: Change Track | Orbit
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            VaibOutlinedButton(
+                label    = if (hasTrack) "Change Track" else "Choose Track",
+                onClick  = onPickTrack,
+                modifier = Modifier.weight(1f),
+            )
+            VaibOutlinedButton(
+                label    = "Orbit",
+                onClick  = onDiscover,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+// ── Kimi Lab Stamp (small, bottom of screen) ──────────────────────────
+
+@Composable
+private fun KimiLabStamp(atmosphere: VaibAtmosphere) {
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment     = Alignment.CenterVertically,
+        modifier              = Modifier.fillMaxWidth(),
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color(0xFF0A0A0A))
+                .border(
+                    BorderStroke(0.5.dp, atmosphere.primaryColor.copy(alpha = 0.20f)),
+                    RoundedCornerShape(4.dp),
+                )
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+        ) {
+            Text(
+                "KIMI DREAMDECK LAB",
+                color         = atmosphere.primaryColor.copy(alpha = 0.50f),
+                fontSize      = 7.sp,
+                fontWeight    = FontWeight.Bold,
+                letterSpacing = 0.8.sp,
+            )
+        }
+        Spacer(Modifier.width(4.dp))
+        Text(
+            "kimi-experiment-dreamdeck",
+            color         = VaibColors.TextSoft.copy(alpha = 0.18f),
+            fontSize      = 7.sp,
+            fontWeight    = FontWeight.Medium,
+            letterSpacing = 0.2.sp,
         )
     }
 }
