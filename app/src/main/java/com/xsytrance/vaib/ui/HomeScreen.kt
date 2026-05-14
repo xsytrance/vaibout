@@ -99,7 +99,7 @@ fun HomeScreen(
                 letterSpacing = (-1.2).sp,
             )
             Text(
-                text = "The visualizer is the product.",
+                    text = "let's chill",
                 color = VaibColors.CyanPulse,
                 fontSize = 12.sp,
                 letterSpacing = 0.3.sp,
