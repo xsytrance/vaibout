@@ -188,6 +188,17 @@ fun HomeScreen(
                 Spacer(Modifier.height(16.dp))
             }
 
+            // ── Queue hint ────────────────────────────────────────────
+            val queueReady by viewModel.queueReady.collectAsState()
+            if (queueReady && !hasTrack) {
+                item {
+                    QueueHintChip(
+                        onClick = { viewModel.navigateTo(com.xsytrance.vaib.Screen.DISCOVER) },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+
             // ── Dreamdeck Hero: visualizer + floating controls + track ──
             item {
                 DreamdeckHero(
@@ -1405,6 +1416,48 @@ private fun KimiLabStamp(atmosphere: VaibAtmosphere) {
             fontSize      = 7.sp,
             fontWeight    = FontWeight.Medium,
             letterSpacing = 0.2.sp,
+        )
+    }
+}
+
+// ── Queue hint chip ───────────────────────────────────────────────────
+
+@Composable
+private fun QueueHintChip(onClick: () -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment     = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF0A0A0A))
+            .border(
+                BorderStroke(0.8.dp, VaibColors.CyanPulse.copy(alpha = 0.22f)),
+                RoundedCornerShape(10.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(RoundedCornerShape(50))
+                .background(VaibColors.CyanPulse.copy(alpha = 0.70f)),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            "Shuffled Orbit ready",
+            color         = VaibColors.CyanPulse.copy(alpha = 0.75f),
+            fontSize      = 12.sp,
+            fontWeight    = FontWeight.SemiBold,
+            letterSpacing = 0.3.sp,
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            "\u2192",
+            color      = VaibColors.CyanPulse.copy(alpha = 0.55f),
+            fontSize   = 14.sp,
         )
     }
 }

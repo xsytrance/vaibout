@@ -1,6 +1,5 @@
 package com.xsytrance.vaib.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -60,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xsytrance.vaib.MainViewModel
 import com.xsytrance.vaib.core.design.OrbitAtmosphereLayer
+import com.xsytrance.vaib.core.design.OrbitWorld
 import com.xsytrance.vaib.core.design.TrackPaint
 import com.xsytrance.vaib.core.design.VaibColors
 import com.xsytrance.vaib.data.entities.VaibEntity
@@ -70,32 +70,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.sin
 
-// ── Mood chip definitions ─────────────────────────────────────────────
-
-private data class MoodChip(val label: String, val query: String? = null)
-
-private val MOOD_CHIPS = listOf(
-    MoodChip("All"),
-    MoodChip("Chill", "chill"),
-    MoodChip("Cosmic", "cosmic"),
-    MoodChip("Deep", "deep"),
-    MoodChip("Focus", "focus"),
-    MoodChip("Energetic", "energetic"),
-    MoodChip("Local"),     // special — opens SAF picker
-    MoodChip("Open Archive"),
-)
-
-private data class MoodWorld(val label: String, val subtitle: String, val accent: Color)
-
-private val MOOD_WORLDS = listOf(
-    MoodWorld("Chill",      "calm ambient waves",          Color(0xFF4DD0E1)),
-    MoodWorld("Cosmic",     "space experimental signals",  Color(0xFFFFB74D)),
-    MoodWorld("Deep",       "dub atmospheric low",         Color(0xFF7C4DFF)),
-    MoodWorld("Focus",      "instrumental minimal",        Color(0xFF80CBC4)),
-    MoodWorld("Energetic",  "upbeat electronic",           Color(0xFF00E5FF)),
-)
-
-// ── Orbit Deck ────────────────────────────────────────────────────────
+// ── Orbit Flow ─────────────────────────────────────────────────────────
 
 @Composable
 fun DiscoverScreen(
@@ -107,22 +82,47 @@ fun DiscoverScreen(
     val loadingItemId by viewModel.loadingItemId.collectAsState()
     val streamError   by viewModel.streamError.collectAsState()
     val savedVaibs    by viewModel.savedVaibs.collectAsState()
+    val sessionQueue  by viewModel.sessionQueue.collectAsState()
+    val queueReady    by viewModel.queueReady.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
-    var activeMood  by remember { mutableStateOf("All") }
+    var activeWorld by remember { mutableStateOf<OrbitWorld>(OrbitWorld.ALL) }
+    var isSearching by remember { mutableStateOf(false) }
+
+    // Derive items to show: search > world > queue
+    val items: List<ArchiveItem> = when {
+        isSearching && state is DiscoverUiState.Success -> (state as DiscoverUiState.Success).items
+        state is DiscoverUiState.Success -> (state as DiscoverUiState.Success).items
+        else -> if (queueReady && activeWorld == OrbitWorld.ALL) sessionQueue else emptyList()
+    }
+
+    // World colors for painting
+    val world = activeWorld
 
     // Debounced search
     LaunchedEffect(searchQuery) {
-        if (searchQuery.isNotEmpty()) delay(600L)
-        viewModel.fetchDiscoverItems(searchQuery)
+        if (searchQuery.isNotEmpty()) {
+            delay(600L)
+            isSearching = true
+            viewModel.fetchDiscoverItems(searchQuery)
+        } else {
+            isSearching = false
+        }
     }
 
-    // Initial load
-    LaunchedEffect(Unit) {
-        viewModel.fetchDiscoverItems("")
+    // Initial world load
+    LaunchedEffect(activeWorld) {
+        if (!isSearching) {
+            viewModel.fetchWorldItems(activeWorld)
+        }
     }
 
-    BackHandler(onBack = onBack)
+    // Queue feed when no search and world=ALL
+    LaunchedEffect(queueReady, activeWorld) {
+        if (queueReady && activeWorld == OrbitWorld.ALL && !isSearching && state !is DiscoverUiState.Success) {
+            // Use queue items directly, no fetch needed
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -130,11 +130,11 @@ fun DiscoverScreen(
             .background(Color.Black)
             .systemBarsPadding(),
     ) {
-        // Floating note atmosphere behind content
+        // World-painted atmosphere
         OrbitAtmosphereLayer(
-            moodColor         = VaibColors.CyanPulse,
-            secondaryMoodColor = VaibColors.VioletGlow,
-            modifier          = Modifier.fillMaxSize(),
+            moodColor          = world.primaryColor,
+            secondaryMoodColor = world.secondaryColor,
+            modifier           = Modifier.fillMaxSize(),
         )
 
         LazyColumn(
@@ -157,84 +157,57 @@ fun DiscoverScreen(
                             fontWeight = FontWeight.Medium,
                         )
                     }
+                    if (queueReady) {
+                        Spacer(Modifier.weight(1f))
+                        QueueReadyChip()
+                    }
                 }
             }
 
             // ── Hero header ───────────────────────────────────────────
             item {
-                Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                    Text(
-                        "Orbit",
-                        color         = Color.White,
-                        fontSize      = 42.sp,
-                        fontWeight    = FontWeight.ExtraBold,
-                        letterSpacing = (-1.2).sp,
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        "Open music worlds  \u00b7  Creative Commons",
-                        color         = VaibColors.CyanPulse,
-                        fontSize      = 12.sp,
-                        fontWeight    = FontWeight.Medium,
-                        letterSpacing = 0.3.sp,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "choose a vibe, then branch out",
-                        color      = VaibColors.TextSoft.copy(alpha = 0.38f),
-                        fontSize   = 11.sp,
-                        fontWeight = FontWeight.Normal,
-                    )
-                    Spacer(Modifier.height(16.dp))
-
-                    // ── Search capsule ──────────────────────────────
-                    OrbitSearchCapsule(
-                        value    = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        onSearch = { viewModel.fetchDiscoverItems(searchQuery) },
-                    )
-                    Spacer(Modifier.height(14.dp))
-                }
+                WorldHeroHeader(world = world)
+                Spacer(Modifier.height(12.dp))
             }
 
-            // ── Mood / world chips ────────────────────────────────────
+            // ── Search capsule ────────────────────────────────────────
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    MOOD_CHIPS.forEach { chip ->
-                        val selected = activeMood == chip.label
-                        OrbitMoodChip(
-                            label    = chip.label,
-                            selected = selected,
-                            onClick  = {
-                                activeMood = chip.label
-                                when (chip.label) {
-                                    "Local"       -> onPickTrack()
-                                    "All",
-                                    "Open Archive" -> viewModel.fetchDiscoverItems("")
-                                    else          -> viewModel.fetchMoodItems(chip.label)
-                                }
-                            },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(20.dp))
+                OrbitSearchCapsule(
+                    value         = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    onSearch      = {
+                        isSearching = true
+                        viewModel.fetchDiscoverItems(searchQuery)
+                    },
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+
+            // ── Horizontal world carousel ─────────────────────────────
+            item {
+                WorldCarousel(
+                    activeWorld = activeWorld,
+                    onWorldSelected = { activeWorld = it },
+                )
+                Spacer(Modifier.height(12.dp))
             }
 
             // ── Glow divider ──────────────────────────────────────────
             item {
-                GlowDivider(modifier = Modifier.padding(horizontal = 24.dp))
-                Spacer(Modifier.height(20.dp))
+                WorldGlowDivider(world = world)
+                Spacer(Modifier.height(12.dp))
             }
 
-            // ── Content: grouped rails ────────────────────────────────
-            when (val s = state) {
-                is DiscoverUiState.Loading -> {
+            // ── Song feed ─────────────────────────────────────────────
+            when {
+                activeWorld == OrbitWorld.LOCAL_FILES -> {
+                    // Local Files portal
+                    item {
+                        LocalFilesPortal(onClick = onPickTrack)
+                        Spacer(Modifier.height(16.dp))
+                    }
+                }
+                state is DiscoverUiState.Loading && items.isEmpty() -> {
                     item {
                         Box(
                             modifier = Modifier
@@ -243,125 +216,115 @@ fun DiscoverScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             CircularProgressIndicator(
-                                color     = VaibColors.CyanPulse,
+                                color     = world.primaryColor,
                                 modifier  = Modifier.size(36.dp),
                                 strokeWidth = 2.dp,
                             )
                         }
                     }
                 }
-
-                is DiscoverUiState.Error -> {
+                state is DiscoverUiState.Error && items.isEmpty() -> {
                     item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 40.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(
-                                s.message,
-                                color      = VaibColors.TextSoft,
-                                fontSize   = 14.sp,
-                                fontWeight = FontWeight.Normal,
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            VaibOutlinedButton(
-                                label   = "Retry",
-                                onClick = { viewModel.fetchDiscoverItems(searchQuery) },
-                            )
-                        }
+                        val errorText = (state as DiscoverUiState.Error).message
+                        EmptySignalCard(
+                            message = errorText,
+                            world   = world,
+                            onRetry = { viewModel.fetchWorldItems(activeWorld) },
+                        )
                     }
                 }
-
-                is DiscoverUiState.Success -> {
-                    // ── Your Orbit ────────────────────────────────
+                items.isEmpty() -> {
                     item {
-                        SectionHeader(
-                            title    = "Your Orbit",
-                            subtitle = "personal entry points",
+                        EmptySignalCard(
+                            message = "No tracks in this world yet.",
+                            world   = world,
+                            onRetry = { viewModel.fetchWorldItems(activeWorld) },
                         )
                     }
-                    item {
-                        YourOrbitRail(
-                            savedVaibs  = savedVaibs,
-                            onLocalPick = onPickTrack,
-                            onVaibClick = { viewModel.loadVaib(it) },
-                            modifier    = Modifier.padding(start = 24.dp),
-                        )
-                        Spacer(Modifier.height(24.dp))
-                    }
-
-                    // ── Open Worlds ───────────────────────────────
-                    item {
-                        SectionHeader(
-                            title    = "Open Worlds",
-                            subtitle = "Internet Archive discovery",
-                        )
-                    }
-                    item {
-                        OpenWorldsRail(
-                            items       = s.items,
-                            loadingId   = loadingItemId,
-                            onItemClick = { viewModel.loadOnlineTrack(it) },
-                            modifier    = Modifier.padding(start = 24.dp),
-                        )
-                        Spacer(Modifier.height(24.dp))
-                    }
-
-                    // ── Mood Constellations ───────────────────────
-                    item {
-                        SectionHeader(
-                            title    = "Mood Constellations",
-                            subtitle = "vibe-first browsing",
-                        )
-                    }
-                    item {
-                        MoodConstellationsRail(
-                            onMoodClick = { mood ->
-                                activeMood = mood
-                                viewModel.fetchMoodItems(mood)
-                            },
-                            modifier = Modifier.padding(start = 24.dp),
-                        )
-                        Spacer(Modifier.height(24.dp))
-                    }
-
-                    // ── Branch Out ────────────────────────────────
-                    if (s.items.isNotEmpty()) {
+                }
+                else -> {
+                    // Queue-ready header
+                    if (queueReady && activeWorld == OrbitWorld.ALL && !isSearching) {
                         item {
-                            SectionHeader(
-                                title    = "Branch Out",
-                                subtitle = "connected exploration",
-                            )
-                        }
-                        item {
-                            BranchOutRail(
-                                items       = s.items.shuffled(),
-                                loadingId   = loadingItemId,
-                                onItemClick = { viewModel.loadOnlineTrack(it) },
-                                modifier    = Modifier.padding(start = 24.dp),
-                            )
-                            Spacer(Modifier.height(24.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(5.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(world.primaryColor.copy(alpha = 0.60f)),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "SHUFFLED ORBIT SESSION",
+                                    color         = world.primaryColor.copy(alpha = 0.65f),
+                                    fontSize      = 9.sp,
+                                    fontWeight    = FontWeight.Bold,
+                                    letterSpacing = 1.2.sp,
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
                         }
                     }
+
+                    // Vertical song feed
+                    items(items, key = { it.id }) { item ->
+                        OrbitSongCard(
+                            item       = item,
+                            isLoading  = loadingItemId == item.id,
+                            anyLoading = loadingId != null,
+                            world      = world,
+                            onClick    = { viewModel.loadOnlineTrack(item) },
+                        )
+                        Spacer(Modifier.height(10.dp))
+                    }
+                }
+            }
+
+            // ── Saved vAIbs in-world ──────────────────────────────────
+            if (activeWorld == OrbitWorld.ALL && savedVaibs.isNotEmpty() && !isSearching) {
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    ) {
+                        ConnectorDot(color = world.primaryColor)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "YOUR SAVED VAIBS",
+                            color         = Color.White.copy(alpha = 0.70f),
+                            fontSize      = 10.sp,
+                            fontWeight    = FontWeight.Bold,
+                            letterSpacing = 1.2.sp,
+                        )
+                    }
+                }
+                items(savedVaibs, key = { it.id }) { vaib ->
+                    SavedVaibOrbitCard(
+                        vaib    = vaib,
+                        onClick = { viewModel.loadVaib(vaib) },
+                    )
+                    Spacer(Modifier.height(10.dp))
                 }
             }
 
             // ── Bottom legal ──────────────────────────────────────────
             item {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(16.dp))
                 Text(
-                    "Open audio from public sources such as Internet Archive.\nAvailability may change.",
-                    color      = VaibColors.TextSoft.copy(alpha = 0.30f),
+                    "Open audio from public sources. Availability may change.",
+                    color      = VaibColors.TextSoft.copy(alpha = 0.22f),
                     fontSize   = 9.sp,
                     lineHeight = 14.sp,
-                    modifier   = Modifier.padding(horizontal = 24.dp),
+                    modifier   = Modifier.padding(horizontal = 20.dp),
                 )
             }
         }
 
-        // ── Stream error banner (floating) ──────────────────────────
+        // ── Stream error banner ─────────────────────────────────────
         if (streamError != null) {
             Row(
                 modifier = Modifier
@@ -392,6 +355,105 @@ fun DiscoverScreen(
     }
 }
 
+// ── World hero header ─────────────────────────────────────────────────
+
+@Composable
+private fun WorldHeroHeader(world: OrbitWorld) {
+    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+        Text(
+            world.label,
+            color         = Color.White,
+            fontSize      = 36.sp,
+            fontWeight    = FontWeight.ExtraBold,
+            letterSpacing = (-1.0).sp,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            world.subtitle,
+            color         = world.primaryColor.copy(alpha = 0.70f),
+            fontSize      = 12.sp,
+            fontWeight    = FontWeight.Medium,
+            letterSpacing = 0.3.sp,
+        )
+    }
+}
+
+// ── World carousel ────────────────────────────────────────────────────
+
+@Composable
+private fun WorldCarousel(
+    activeWorld: OrbitWorld,
+    onWorldSelected: (OrbitWorld) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        OrbitWorld.DISPLAY_ORDER.forEach { world ->
+            val isActive = world == activeWorld
+            WorldPlanetChip(
+                world    = world,
+                isActive = isActive,
+                onClick  = { onWorldSelected(world) },
+            )
+        }
+    }
+}
+
+// ── World planet chip ─────────────────────────────────────────────────
+
+@Composable
+private fun WorldPlanetChip(
+    world: OrbitWorld,
+    isActive: Boolean,
+    onClick: () -> Unit,
+) {
+    val bgColor     = if (isActive) world.primaryColor.copy(alpha = 0.15f) else Color(0xFF0A0A0A)
+    val borderColor = if (isActive) world.primaryColor.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.08f)
+    val textColor   = if (isActive) world.primaryColor else Color.White.copy(alpha = 0.55f)
+    val subColor    = if (isActive) world.secondaryColor.copy(alpha = 0.50f) else VaibColors.TextSoft.copy(alpha = 0.30f)
+
+    Column(
+        modifier = Modifier
+            .width(78.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(bgColor)
+            .border(BorderStroke(1.dp, borderColor), RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        // Tiny planet orb
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .clip(RoundedCornerShape(50))
+                .background(if (isActive) world.primaryColor else world.primaryColor.copy(alpha = 0.25f)),
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            world.label,
+            color      = textColor,
+            fontSize   = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines   = 1,
+            overflow   = TextOverflow.Ellipsis,
+        )
+        Text(
+            world.subtitle,
+            color      = subColor,
+            fontSize   = 7.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines   = 1,
+            overflow   = TextOverflow.Ellipsis,
+            letterSpacing = 0.2.sp,
+        )
+    }
+}
+
 // ── Search capsule ────────────────────────────────────────────────────
 
 @Composable
@@ -406,13 +468,14 @@ private fun OrbitSearchCapsule(
         placeholder   = {
             Text(
                 "search open worlds\u2026",
-                color      = VaibColors.TextSoft.copy(alpha = 0.40f),
-                fontSize   = 14.sp,
+                color    = VaibColors.TextSoft.copy(alpha = 0.40f),
+                fontSize = 14.sp,
             )
         },
         singleLine = true,
         modifier   = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 20.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFF0A0A0A)),
         colors = OutlinedTextFieldDefaults.colors(
@@ -430,78 +493,24 @@ private fun OrbitSearchCapsule(
     )
 }
 
-// ── Mood chip ─────────────────────────────────────────────────────────
+// ── World glow divider ────────────────────────────────────────────────
 
 @Composable
-private fun OrbitMoodChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val bgColor = if (selected) VaibColors.CyanPulse else Color(0xFF0A0A0A)
-    val textColor = if (selected) Color.Black else Color.White.copy(alpha = 0.70f)
-    val borderColor = if (selected) Color.Transparent else Color.White.copy(alpha = 0.10f)
-
+private fun WorldGlowDivider(world: OrbitWorld) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(bgColor)
-            .border(BorderStroke(1.dp, borderColor), RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        contentAlignment = Alignment.Center,
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .height(1.dp),
     ) {
-        Text(
-            label,
-            color      = textColor,
-            fontSize   = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-        )
-    }
-}
-
-// ── Section header ────────────────────────────────────────────────────
-
-@Composable
-private fun SectionHeader(title: String, subtitle: String) {
-    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            ConnectorDot()
-            Text(
-                title.uppercase(),
-                color         = Color.White.copy(alpha = 0.80f),
-                fontSize      = 11.sp,
-                fontWeight    = FontWeight.Bold,
-                letterSpacing = 1.4.sp,
-            )
-        }
-        Text(
-            subtitle,
-            color         = VaibColors.TextSoft.copy(alpha = 0.22f),
-            fontSize      = 9.sp,
-            fontWeight    = FontWeight.Medium,
-            letterSpacing = 0.2.sp,
-            modifier      = Modifier.padding(start = 14.dp, top = 1.dp),
-        )
-    }
-}
-
-// ── Glow divider ──────────────────────────────────────────────────────
-
-@Composable
-private fun GlowDivider(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.height(1.dp)) {
         Canvas(modifier = Modifier.fillMaxWidth().height(1.dp)) {
             drawLine(
                 brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        VaibColors.CyanPulse.copy(alpha = 0.0f),
-                        VaibColors.CyanPulse.copy(alpha = 0.30f),
-                        VaibColors.VioletGlow.copy(alpha = 0.20f),
-                        VaibColors.CyanPulse.copy(alpha = 0.0f),
+                    listOf(
+                        world.primaryColor.copy(alpha = 0.0f),
+                        world.primaryColor.copy(alpha = 0.30f),
+                        world.secondaryColor.copy(alpha = 0.20f),
+                        world.primaryColor.copy(alpha = 0.0f),
                     ),
                 ),
                 start  = Offset(0f, size.height / 2),
@@ -512,89 +521,107 @@ private fun GlowDivider(modifier: Modifier = Modifier) {
     }
 }
 
-// ── Connector dot ─────────────────────────────────────────────────────
+// ── Orbit song card (vertical feed) ───────────────────────────────────
 
 @Composable
-private fun ConnectorDot() {
-    Box(
-        modifier = Modifier
-            .size(5.dp)
-            .clip(RoundedCornerShape(50))
-            .background(VaibColors.CyanPulse.copy(alpha = 0.60f)),
-    )
-}
-
-// ── Your Orbit rail ───────────────────────────────────────────────────
-
-@Composable
-private fun YourOrbitRail(
-    savedVaibs: List<VaibEntity>,
-    onLocalPick: () -> Unit,
-    onVaibClick: (VaibEntity) -> Unit,
-    modifier: Modifier = Modifier,
+private fun OrbitSongCard(
+    item: ArchiveItem,
+    isLoading: Boolean,
+    anyLoading: Boolean,
+    world: OrbitWorld,
+    onClick: () -> Unit,
 ) {
-    LazyRow(
-        modifier               = modifier.fillMaxWidth(),
-        horizontalArrangement  = Arrangement.spacedBy(12.dp),
-        contentPadding         = PaddingValues(end = 24.dp),
-    ) {
-        // Local Files card
-        item {
-            LocalFilesCard(onClick = onLocalPick)
-        }
+    val paint    = remember(item.id) { TrackPaint.fromArchiveItem(item) }
+    val enabled  = !anyLoading || isLoading
+    val dimAlpha = if (anyLoading && !isLoading) 0.30f else 1.0f
 
-        // Saved vAIb cards
-        items(savedVaibs, key = { it.id }) { vaib ->
-            SavedVaibOrbitCard(
-                vaib    = vaib,
-                onClick = { onVaibClick(vaib) },
-            )
-        }
-    }
-}
+    // Blend world color with track paint for world-consistent cards
+    val cardPrimary   = lerp(world.primaryColor, paint.primaryColor, 0.35f)
+    val cardSecondary = lerp(world.secondaryColor, paint.secondaryColor, 0.35f)
 
-// ── Local Files card ──────────────────────────────────────────────────
-
-@Composable
-private fun LocalFilesCard(onClick: () -> Unit) {
-    Column(
+    Row(
         modifier = Modifier
-            .width(148.dp)
-            .height(120.dp)
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .height(72.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFF0A0A0A))
             .border(
-                BorderStroke(0.8.dp, Color.White.copy(alpha = 0.08f)),
+                BorderStroke(0.6.dp, cardPrimary.copy(alpha = 0.18f * dimAlpha)),
                 RoundedCornerShape(14.dp),
             )
-            .clickable(onClick = onClick)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment   = Alignment.CenterVertically,
     ) {
-        Column {
-            Text(
-                "Local Files",
-                color      = Color.White.copy(alpha = 0.88f),
-                fontSize   = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                "pick a track from your device",
-                color      = VaibColors.TextSoft.copy(alpha = 0.40f),
-                fontSize   = 9.sp,
-                lineHeight = 13.sp,
+        // Mini waveform thumbnail
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(cardPrimary.copy(alpha = 0.10f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            SongCardMiniWaveform(
+                color = cardPrimary.copy(alpha = 0.35f * dimAlpha),
             )
         }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-            verticalAlignment   = Alignment.CenterVertically,
-        ) {
+
+        // Track info
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                "\u2192  Open picker",
-                color         = VaibColors.CyanPulse.copy(alpha = 0.65f),
-                fontSize      = 9.sp,
-                fontWeight    = FontWeight.Medium,
+                item.title,
+                color      = Color.White.copy(alpha = 0.88f * dimAlpha),
+                fontSize   = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines   = 1,
+                overflow   = TextOverflow.Ellipsis,
+            )
+            if (item.creator.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    item.creator,
+                    color    = VaibColors.TextSoft.copy(alpha = 0.45f * dimAlpha),
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(
+                    paint.vibeLabel.uppercase(),
+                    color         = cardPrimary.copy(alpha = 0.50f * dimAlpha),
+                    fontSize      = 7.sp,
+                    fontWeight    = FontWeight.Bold,
+                    letterSpacing = 0.7.sp,
+                )
+                Text(
+                    "\u00b7",
+                    color  = VaibColors.TextSoft.copy(alpha = 0.20f),
+                    fontSize = 7.sp,
+                )
+                Text(
+                    paint.glyphs.first(),
+                    color  = cardPrimary.copy(alpha = 0.25f * dimAlpha),
+                    fontSize = 8.sp,
+                )
+            }
+        }
+
+        // Loading or source indicator
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier    = Modifier.size(16.dp),
+                color       = cardPrimary,
+                strokeWidth = 1.5.dp,
+            )
+        } else {
+            Text(
+                "\u2192",
+                color      = cardSecondary.copy(alpha = 0.35f * dimAlpha),
+                fontSize   = 14.sp,
             )
         }
     }
@@ -609,10 +636,11 @@ private fun SavedVaibOrbitCard(
 ) {
     val paint = remember(vaib.id) { TrackPaint.fromVaibEntity(vaib) }
 
-    Column(
+    Row(
         modifier = Modifier
-            .width(148.dp)
-            .height(120.dp)
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .height(64.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFF0A0A0A))
             .border(
@@ -620,272 +648,188 @@ private fun SavedVaibOrbitCard(
                 RoundedCornerShape(14.dp),
             )
             .clickable(onClick = onClick)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment   = Alignment.CenterVertically,
     ) {
-        Column {
+        // Mini wave thumbnail
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(paint.primaryColor.copy(alpha = 0.10f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            SongCardMiniWaveform(color = paint.primaryColor.copy(alpha = 0.30f))
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 vaib.vaibName,
                 color      = Color.White.copy(alpha = 0.88f),
-                fontSize   = 12.sp,
+                fontSize   = 13.sp,
                 fontWeight = FontWeight.SemiBold,
-                maxLines   = 2,
+                maxLines   = 1,
                 overflow   = TextOverflow.Ellipsis,
-                lineHeight = 16.sp,
             )
             if (vaib.mood.isNotEmpty()) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(3.dp))
                 Text(
                     paint.vibeLabel.uppercase(),
-                    color      = paint.primaryColor.copy(alpha = 0.65f),
-                    fontSize   = 7.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp,
+                    color         = paint.primaryColor.copy(alpha = 0.55f),
+                    fontSize      = 7.sp,
+                    fontWeight    = FontWeight.Bold,
+                    letterSpacing = 0.7.sp,
                 )
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment   = Alignment.CenterVertically,
-        ) {
-            MiniWaveformBar(
-                color    = paint.primaryColor.copy(alpha = 0.30f),
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                paint.glyphs.first(),
-                color  = paint.primaryColor.copy(alpha = 0.22f),
-                fontSize = 8.sp,
-            )
-        }
+
+        Text(
+            paint.glyphs.first(),
+            color  = paint.primaryColor.copy(alpha = 0.25f),
+            fontSize = 10.sp,
+        )
     }
 }
 
-// ── Open Worlds rail ──────────────────────────────────────────────────
+// ── Local Files portal ────────────────────────────────────────────────
 
 @Composable
-private fun OpenWorldsRail(
-    items: List<ArchiveItem>,
-    loadingId: String?,
-    onItemClick: (ArchiveItem) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LazyRow(
-        modifier              = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding        = PaddingValues(end = 24.dp),
-    ) {
-        items(items.take(15), key = { it.id }) { item ->
-            val paint = remember(item.id) { TrackPaint.fromArchiveItem(item) }
-            OrbitTrackCard(
-                item        = item,
-                isLoading   = loadingId == item.id,
-                anyLoading  = loadingId != null,
-                branchLabel = paint.connectionLabel,
-                onClick     = { onItemClick(item) },
-            )
-        }
-    }
-}
-
-// ── Mood Constellations rail ──────────────────────────────────────────
-
-@Composable
-private fun MoodConstellationsRail(
-    onMoodClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LazyRow(
-        modifier              = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding        = PaddingValues(end = 24.dp),
-    ) {
-        items(MOOD_WORLDS) { world ->
-            MoodWorldCard(
-                world   = world,
-                onClick = { onMoodClick(world.label) },
-            )
-        }
-    }
-}
-
-// ── Mood world card ───────────────────────────────────────────────────
-
-@Composable
-private fun MoodWorldCard(
-    world: MoodWorld,
-    onClick: () -> Unit,
-) {
+private fun LocalFilesPortal(onClick: () -> Unit) {
     Column(
         modifier = Modifier
-            .width(148.dp)
-            .height(110.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .height(140.dp)
+            .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF0A0A0A))
             .border(
-                BorderStroke(0.8.dp, world.accent.copy(alpha = 0.30f)),
-                RoundedCornerShape(14.dp),
+                BorderStroke(1.dp, Color(0xFF80DEEA).copy(alpha = 0.25f)),
+                RoundedCornerShape(16.dp),
             )
             .clickable(onClick = onClick)
-            .padding(14.dp),
+            .padding(18.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Column {
             Text(
-                world.label,
+                "Local Files",
                 color      = Color.White.copy(alpha = 0.90f),
-                fontSize   = 15.sp,
+                fontSize   = 16.sp,
                 fontWeight = FontWeight.Bold,
             )
             Spacer(Modifier.height(3.dp))
             Text(
-                world.subtitle,
+                "Pick a track from your device",
                 color      = VaibColors.TextSoft.copy(alpha = 0.40f),
-                fontSize   = 9.sp,
-                lineHeight = 13.sp,
+                fontSize   = 11.sp,
             )
         }
-        MiniWaveformBar(color = world.accent.copy(alpha = 0.35f))
-    }
-}
-
-// ── Branch Out rail ───────────────────────────────────────────────────
-
-@Composable
-private fun BranchOutRail(
-    items: List<ArchiveItem>,
-    loadingId: String?,
-    onItemClick: (ArchiveItem) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LazyRow(
-        modifier              = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding        = PaddingValues(end = 24.dp),
-    ) {
-        items(items.take(10), key = { it.id }) { item ->
-            val paint = remember(item.id) { TrackPaint.fromArchiveItem(item) }
-            OrbitTrackCard(
-                item        = item,
-                isLoading   = loadingId == item.id,
-                anyLoading  = loadingId != null,
-                branchLabel = paint.connectionLabel,
-                onClick     = { onItemClick(item) },
-            )
-        }
-    }
-}
-
-// ── Orbit track card ──────────────────────────────────────────────────
-
-@Composable
-private fun OrbitTrackCard(
-    item: ArchiveItem,
-    isLoading: Boolean,
-    anyLoading: Boolean,
-    branchLabel: String,
-    onClick: () -> Unit,
-) {
-    val paint    = remember(item.id) { TrackPaint.fromArchiveItem(item) }
-    val enabled  = !anyLoading || isLoading
-    val dimAlpha = if (anyLoading && !isLoading) 0.30f else 1.0f
-
-    Column(
-        modifier = Modifier
-            .width(180.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF0A0A0A))
-            .border(
-                BorderStroke(0.6.dp, paint.borderColor.copy(alpha = dimAlpha)),
-                RoundedCornerShape(14.dp),
-            )
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        // Title
-        Text(
-            item.title,
-            color      = Color.White.copy(alpha = 0.88f * dimAlpha),
-            fontSize   = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines   = 2,
-            overflow   = TextOverflow.Ellipsis,
-            lineHeight = 16.sp,
-        )
-
-        // Compact badge row: vibe · source · glyph
         Row(
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment   = Alignment.CenterVertically,
         ) {
             Text(
-                paint.vibeLabel.uppercase(),
-                color         = paint.primaryColor.copy(alpha = 0.55f * dimAlpha),
-                fontSize      = 7.sp,
-                fontWeight    = FontWeight.Bold,
-                letterSpacing = 0.8.sp,
+                "\u2192  Open picker",
+                color      = Color(0xFF80DEEA).copy(alpha = 0.60f),
+                fontSize   = 11.sp,
+                fontWeight = FontWeight.Medium,
             )
-            Text(
-                "\u00b7",
-                color    = VaibColors.TextSoft.copy(alpha = 0.20f),
-                fontSize = 7.sp,
-            )
-            Text(
-                "archive",
-                color      = paint.secondaryColor.copy(alpha = 0.40f * dimAlpha),
-                fontSize      = 7.sp,
-                fontWeight    = FontWeight.Medium,
-                letterSpacing = 0.2.sp,
-            )
-            Text(
-                paint.glyphs.first(),
-                color      = paint.primaryColor.copy(alpha = 0.22f * dimAlpha),
-                fontSize   = 8.sp,
-            )
-            if (isLoading) {
-                Spacer(Modifier.width(4.dp))
-                CircularProgressIndicator(
-                    modifier    = Modifier.size(12.dp),
-                    color       = paint.primaryColor,
-                    strokeWidth = 1.5.dp,
-                )
-            }
         }
+    }
+}
 
-        // Mini waveform (painted)
-        MiniWaveformBar(
-            color    = paint.primaryColor.copy(alpha = 0.28f * dimAlpha),
-            modifier = Modifier.fillMaxWidth(),
+// ── Empty signal card ─────────────────────────────────────────────────
+
+@Composable
+private fun EmptySignalCard(
+    message: String,
+    world: OrbitWorld,
+    onRetry: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 40.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF0A0A0A))
+            .border(
+                BorderStroke(0.6.dp, world.primaryColor.copy(alpha = 0.15f)),
+                RoundedCornerShape(16.dp),
+            )
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            "\u25CB",
+            color  = world.primaryColor.copy(alpha = 0.30f),
+            fontSize = 32.sp,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            message,
+            color      = VaibColors.TextSoft.copy(alpha = 0.50f),
+            fontSize   = 13.sp,
+            fontWeight = FontWeight.Medium,
+        )
+        Spacer(Modifier.height(16.dp))
+        VaibOutlinedButton(label = "Retry", onClick = onRetry)
+    }
+}
+
+// ── Queue ready chip ──────────────────────────────────────────────────
+
+@Composable
+private fun QueueReadyChip() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF0A0A0A))
+            .border(
+                BorderStroke(0.5.dp, VaibColors.CyanPulse.copy(alpha = 0.25f)),
+                RoundedCornerShape(10.dp),
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(5.dp)
+                .clip(RoundedCornerShape(50))
+                .background(VaibColors.CyanPulse.copy(alpha = 0.70f)),
+        )
+        Text(
+            "Shuffled Orbit ready",
+            color         = VaibColors.CyanPulse.copy(alpha = 0.65f),
+            fontSize      = 9.sp,
+            fontWeight    = FontWeight.SemiBold,
+            letterSpacing = 0.3.sp,
         )
     }
 }
 
-// ── Mini waveform bar ─────────────────────────────────────────────────
+// ── Song card mini waveform ───────────────────────────────────────────
 
 @Composable
-private fun MiniWaveformBar(
-    color: Color,
-    modifier: Modifier = Modifier,
-) {
-    val transition = rememberInfiniteTransition(label = "miniWave")
+private fun SongCardMiniWaveform(color: Color) {
+    val transition = rememberInfiniteTransition(label = "songCardWave")
     val phase by transition.animateFloat(
         0f, 1f,
-        infiniteRepeatable(tween(2_400, easing = LinearEasing), RepeatMode.Restart),
-        label = "miniPhase",
+        infiniteRepeatable(tween(2_000, easing = LinearEasing), RepeatMode.Restart),
+        label = "songCardPhase",
     )
-    val barCount = 12
+    val barCount = 6
     val twoPi = (2.0 * PI).toFloat()
 
-    Canvas(modifier = modifier.height(10.dp)) {
+    Canvas(modifier = Modifier.size(28.dp, 16.dp)) {
         val barW = size.width / (barCount * 2 - 1)
         val maxH = size.height
         for (i in 0 until barCount) {
-            val speed  = 0.6f + (i % 4) * 0.25f
+            val speed = 0.5f + (i % 3) * 0.3f
             val offset = i.toFloat() / barCount
-            val raw    = abs(sin((phase + offset) * speed * twoPi))
-            val h      = (maxH * (0.15f + raw * 0.85f)).coerceAtLeast(1.5f)
+            val raw = abs(sin(((phase + offset) * speed * twoPi).toDouble())).toFloat()
+            val h = (maxH * (0.2f + raw * 0.8f)).coerceAtLeast(1.5f)
             drawRect(
                 color   = color,
                 topLeft = Offset(i * barW * 2f, maxH - h),
@@ -893,4 +837,27 @@ private fun MiniWaveformBar(
             )
         }
     }
+}
+
+// ── Connector dot ─────────────────────────────────────────────────────
+
+@Composable
+private fun ConnectorDot(color: Color) {
+    Box(
+        modifier = Modifier
+            .size(5.dp)
+            .clip(RoundedCornerShape(50))
+            .background(color.copy(alpha = 0.60f)),
+    )
+}
+
+// ── Color lerp (internal helper) ──────────────────────────────────────
+
+private fun lerp(a: Color, b: Color, fraction: Float): Color {
+    return Color(
+        red   = a.red   + (b.red   - a.red)   * fraction,
+        green = a.green + (b.green - a.green) * fraction,
+        blue  = a.blue  + (b.blue  - a.blue)  * fraction,
+        alpha = a.alpha + (b.alpha - a.alpha) * fraction,
+    )
 }

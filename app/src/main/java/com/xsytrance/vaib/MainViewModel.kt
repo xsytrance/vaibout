@@ -82,11 +82,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _streamError = MutableStateFlow<String?>(null)
     val streamError: StateFlow<String?> = _streamError.asStateFlow()
 
+    // ── Session queue ─────────────────────────────────────────────────
+
+    private val _sessionQueue = MutableStateFlow<List<ArchiveItem>>(emptyList())
+    val sessionQueue: StateFlow<List<ArchiveItem>> = _sessionQueue.asStateFlow()
+
+    private val _queueReady = MutableStateFlow(false)
+    val queueReady: StateFlow<Boolean> = _queueReady.asStateFlow()
+
     init {
         restorePersistedTrack(application)
         prepareStartupTrack(application)
+        prepareSessionQueue()
         startPositionTicker()
         observePlaybackEnd()
+    }
+
+    /** Prepare a shuffled session queue on startup. */
+    private fun prepareSessionQueue() {
+        viewModelScope.launch {
+            try {
+                val items = InternetArchiveApi.fetchItems("")
+                if (items.isNotEmpty()) {
+                    _sessionQueue.value = items.shuffled()
+                    _queueReady.value = true
+                }
+            } catch (_: Exception) {
+                // Queue stays empty, app works normally
+            }
+        }
+    }
+
+    /** Play the next track from the session queue. */
+    fun playNextFromQueue() {
+        val queue = _sessionQueue.value
+        if (queue.isEmpty()) return
+        val currentId = _trackUri.value?.toString()?.substringAfterLast("/") ?: ""
+        val nextIndex = queue.indexOfFirst { it.id == currentId } + 1
+        val nextItem = queue.getOrNull(nextIndex) ?: queue.first()
+        loadOnlineTrack(nextItem)
     }
 
     // ── Track restore ─────────────────────────────────────────────────
@@ -208,9 +242,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Mood-first discovery: maps mood labels to Internet Archive search queries. */
+    /** Mood-first discovery with fallback to prevent empty states. */
     fun fetchMoodItems(mood: String) {
-        val query = when (mood.trim().lowercase()) {
+        val lower = mood.trim().lowercase()
+        val query = when (lower) {
             "chill"     -> "chill ambient relaxing calm"
             "cosmic"    -> "cosmic space ambient experimental"
             "deep"      -> "deep dub atmospheric low"
@@ -218,7 +253,57 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             "energetic" -> "upbeat electronic energetic"
             else        -> ""
         }
-        fetchDiscoverItems(query)
+        val fallback = when (lower) {
+            "chill"     -> "ambient"
+            "cosmic"    -> "electronic"
+            "deep"      -> "bass"
+            "focus"     -> "instrumental"
+            "energetic" -> "dance"
+            else        -> ""
+        }
+        fetchWithFallback(query, fallback)
+    }
+
+    /** Fetch with automatic fallback on empty results. */
+    private fun fetchWithFallback(primary: String, fallback: String) {
+        viewModelScope.launch {
+            _discoverState.value = DiscoverUiState.Loading
+            _streamError.value = null
+            try {
+                val items = InternetArchiveApi.fetchItems(primary)
+                if (items.isNotEmpty()) {
+                    _discoverState.value = DiscoverUiState.Success(items)
+                } else if (fallback.isNotEmpty() && fallback != primary) {
+                    val fallbackItems = InternetArchiveApi.fetchItems(fallback)
+                    _discoverState.value = if (fallbackItems.isNotEmpty()) {
+                        DiscoverUiState.Success(fallbackItems)
+                    } else {
+                        DiscoverUiState.Error("No tracks found. Try another world.")
+                    }
+                } else {
+                    _discoverState.value = DiscoverUiState.Error("No tracks found. Try another world.")
+                }
+            } catch (_: Exception) {
+                _discoverState.value = DiscoverUiState.Error("Couldn't load music. Check your connection.")
+            }
+        }
+    }
+
+    /** Fetch items for a specific Orbit world. */
+    fun fetchWorldItems(world: com.xsytrance.vaib.core.design.OrbitWorld) {
+        when (world) {
+            com.xsytrance.vaib.core.design.OrbitWorld.LOCAL_FILES -> {
+                // Local Files shows empty feed; user taps portal to open SAF picker
+                _discoverState.value = DiscoverUiState.Success(emptyList())
+            }
+            com.xsytrance.vaib.core.design.OrbitWorld.ALL,
+            com.xsytrance.vaib.core.design.OrbitWorld.OPEN_ARCHIVE -> {
+                fetchDiscoverItems("")
+            }
+            else -> {
+                fetchWithFallback(world.query, world.fallbackQuery)
+            }
+        }
     }
 
     fun loadOnlineTrack(item: ArchiveItem) {
