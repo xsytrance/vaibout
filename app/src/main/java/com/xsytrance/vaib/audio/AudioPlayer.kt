@@ -18,6 +18,9 @@ class AudioPlayer(context: Context) {
     private val _isBuffering = MutableStateFlow(false)
     val isBuffering: StateFlow<Boolean> = _isBuffering
 
+    private val _isEnded     = MutableStateFlow(false)
+    val isEnded: StateFlow<Boolean> = _isEnded
+
     val currentPositionMs: Long get() = player.currentPosition
     val durationMs: Long        get() = player.duration
 
@@ -32,6 +35,7 @@ class AudioPlayer(context: Context) {
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 _isBuffering.value = playbackState == Player.STATE_BUFFERING
+                _isEnded.value     = playbackState == Player.STATE_ENDED
             }
         })
     }

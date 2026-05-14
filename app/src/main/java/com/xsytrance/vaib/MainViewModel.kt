@@ -65,6 +65,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         restorePersistedTrack(application)
         startPositionTicker()
+        observePlaybackEnd()
     }
 
     // ── Track restore ─────────────────────────────────────────────────
@@ -93,6 +94,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ── Position ticker ───────────────────────────────────────────────
+
+    private fun observePlaybackEnd() {
+        viewModelScope.launch {
+            audioPlayer.isEnded.collect { ended ->
+                if (ended) _playbackFraction.value = 0f
+            }
+        }
+    }
 
     private fun startPositionTicker() {
         viewModelScope.launch {
@@ -208,6 +217,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _playbackFraction.value = 0f
         trackPrefs.save(uri, vaib.trackName)
         audioPlayer.prepareTrack(uri)
+    }
+
+    fun deleteVaib(vaib: VaibEntity) {
+        viewModelScope.launch { vaibDao.delete(vaib) }
     }
 
     // ── Playback / navigation ─────────────────────────────────────────

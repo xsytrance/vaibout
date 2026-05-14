@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xsytrance.vaib.MainViewModel
 import com.xsytrance.vaib.core.design.VaibColors
+import com.xsytrance.vaib.data.entities.VaibEntity
 import com.xsytrance.vaib.vaib.VaibCard
 
 private val MOOD_OPTIONS = listOf("Deep", "Chill", "Energetic", "Cosmic", "Focus")
@@ -60,9 +61,10 @@ fun HomeScreen(
     val savedVaibs       by viewModel.savedVaibs.collectAsState()
     val hasTrack = trackUri != null
 
-    var showSaveDialog by remember { mutableStateOf(false) }
-    var nameInput      by remember { mutableStateOf("") }
-    var selectedMood   by remember { mutableStateOf("") }
+    var showSaveDialog    by remember { mutableStateOf(false) }
+    var nameInput         by remember { mutableStateOf("") }
+    var selectedMood      by remember { mutableStateOf("") }
+    var pendingDeleteVaib by remember { mutableStateOf<VaibEntity?>(null) }
 
     Column(
         modifier = Modifier
@@ -108,7 +110,11 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(savedVaibs, key = { it.id }) { vaib ->
-                    VaibCard(vaib = vaib, onClick = { viewModel.loadVaib(vaib) })
+                    VaibCard(
+                        vaib            = vaib,
+                        onClick         = { viewModel.loadVaib(vaib) },
+                        onDeleteRequest = { pendingDeleteVaib = vaib },
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(20.dp))
@@ -206,6 +212,43 @@ fun HomeScreen(
         }
 
         Spacer(modifier = Modifier.height(48.dp))
+    }
+
+    // ── Delete vAIb confirmation dialog ──────────────────────────────
+    pendingDeleteVaib?.let { vaib ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteVaib = null },
+            containerColor   = VaibColors.DeepBackground,
+            titleContentColor = Color.White,
+            textContentColor  = VaibColors.TextSoft,
+            title = {
+                Text("Delete vAIb?", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            },
+            text = {
+                Text("\"${vaib.vaibName}\" will be removed from your collection.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteVaib(vaib)
+                        pendingDeleteVaib = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFCC3333),
+                        contentColor   = Color.White,
+                    ),
+                    shape     = RoundedCornerShape(10.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteVaib = null }) {
+                    Text("Cancel", color = VaibColors.TextSoft)
+                }
+            },
+        )
     }
 
     // ── Save vAIb dialog ──────────────────────────────────────────────
