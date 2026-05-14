@@ -139,6 +139,18 @@ fun DiscoverScreen(
             Spacer(modifier = Modifier.height(12.dp))
         }
 
+        // ── Section label ─────────────────────────────────────────────
+        Text(
+            text = if (searchQuery.isBlank()) "TOP OPEN PICKS" else "SEARCH RESULTS",
+            color = VaibColors.TextSoft.copy(alpha = 0.40f),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.8.sp,
+            modifier = Modifier
+                .padding(horizontal = 28.dp)
+                .padding(bottom = 10.dp),
+        )
+
         // ── Stream error banner ───────────────────────────────────────
         if (streamError != null) {
             Row(

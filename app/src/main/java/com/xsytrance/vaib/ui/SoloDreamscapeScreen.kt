@@ -23,7 +23,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,17 +47,28 @@ fun SoloDreamscapeScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
 ) {
-    val view = LocalView.current
+    val view    = LocalView.current
     val context = LocalContext.current
+    val scope   = rememberCoroutineScope()
     val audioEnergy by viewModel.audioEnergy.collectAsState()
     val audioBeat   by viewModel.audioBeatPulse.collectAsState()
     var reactiveAvailable by remember { mutableStateOf(false) }
 
-    // ── Permission + analyzer start ───────────────────────────────────
+    // ── Permission + analyzer start (with one-shot retry) ─────────────
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) reactiveAvailable = viewModel.startAnalyzer()
+        if (granted) {
+            scope.launch {
+                reactiveAvailable = viewModel.startAnalyzer()
+                if (!reactiveAvailable) {
+                    // audioSessionId may be 0 if the audio renderer isn't ready yet;
+                    // one retry after 500 ms covers the typical stream warm-up window.
+                    delay(500L)
+                    reactiveAvailable = viewModel.startAnalyzer()
+                }
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -63,6 +77,10 @@ fun SoloDreamscapeScreen(
         ) == PackageManager.PERMISSION_GRANTED
         if (already) {
             reactiveAvailable = viewModel.startAnalyzer()
+            if (!reactiveAvailable) {
+                delay(500L)
+                reactiveAvailable = viewModel.startAnalyzer()
+            }
         } else {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }

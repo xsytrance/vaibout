@@ -28,14 +28,14 @@ object InternetArchiveApi {
      * Fetches audio items from Internet Archive.
      *
      * Empty [query] → top netlabels CC music (curated default).
-     * Non-empty [query] → keyword search across all IA audio.
+     * Non-empty [query] → keyword search restricted to CC-licensed audio.
      */
     suspend fun fetchItems(query: String = ""): List<ArchiveItem> = withContext(Dispatchers.IO) {
         try {
             val q = if (query.isBlank()) {
                 "collection:netlabels AND mediatype:audio"
             } else {
-                "${query.trim()} AND mediatype:audio"
+                "${query.trim()} AND mediatype:audio AND licenseurl:creativecommons"
             }
             val encoded = URLEncoder.encode(q, "UTF-8")
             val url = "$BASE/advancedsearch.php" +
