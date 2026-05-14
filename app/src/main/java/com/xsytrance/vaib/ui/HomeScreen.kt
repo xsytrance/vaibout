@@ -55,6 +55,7 @@ fun HomeScreen(
     val trackName        by viewModel.trackName.collectAsState()
     val trackUri         by viewModel.trackUri.collectAsState()
     val isPlaying        by viewModel.isPlaying.collectAsState()
+    val isBuffering      by viewModel.isBuffering.collectAsState()
     val playbackFraction by viewModel.playbackFraction.collectAsState()
     val savedVaibs       by viewModel.savedVaibs.collectAsState()
     val hasTrack = trackUri != null
@@ -117,11 +118,15 @@ fun HomeScreen(
         if (hasTrack) {
             Text(
                 text = when {
-                    isPlaying        -> "PLAYING"
+                    isBuffering           -> "BUFFERING…"
+                    isPlaying             -> "PLAYING"
                     playbackFraction > 0f -> "PAUSED"
-                    else             -> "READY"
+                    else                  -> "READY"
                 },
-                color = if (isPlaying) VaibColors.CyanPulse else VaibColors.TextSoft,
+                color = when {
+                    isPlaying   -> VaibColors.CyanPulse
+                    else        -> VaibColors.TextSoft
+                },
                 fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 2.sp,
@@ -147,15 +152,22 @@ fun HomeScreen(
                 fontWeight = FontWeight.Normal,
             )
             Spacer(modifier = Modifier.height(10.dp))
-            LinearProgressIndicator(
-                progress = { playbackFraction },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp),
-                color = VaibColors.CyanPulse,
-                trackColor = Color.White.copy(alpha = 0.07f),
-                strokeCap = StrokeCap.Round,
-            )
+            if (isBuffering) {
+                // Indeterminate: built-in animated fill while stream buffers
+                LinearProgressIndicator(
+                    modifier   = Modifier.fillMaxWidth().height(2.dp),
+                    color      = VaibColors.CyanPulse.copy(alpha = 0.55f),
+                    trackColor = Color.White.copy(alpha = 0.07f),
+                )
+            } else {
+                LinearProgressIndicator(
+                    progress   = { playbackFraction },
+                    modifier   = Modifier.fillMaxWidth().height(2.dp),
+                    color      = VaibColors.CyanPulse,
+                    trackColor = Color.White.copy(alpha = 0.07f),
+                    strokeCap  = StrokeCap.Round,
+                )
+            }
             Spacer(modifier = Modifier.height(20.dp))
         }
 

@@ -33,7 +33,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val audioEnergy    = analyzer.energy
     val audioBeatPulse = analyzer.beatPulse
 
-    val isPlaying: StateFlow<Boolean> = audioPlayer.isPlaying
+    val isPlaying:   StateFlow<Boolean> = audioPlayer.isPlaying
+    val isBuffering: StateFlow<Boolean> = audioPlayer.isBuffering
 
     private val _trackUri = MutableStateFlow<Uri?>(null)
     val trackUri: StateFlow<Uri?> = _trackUri.asStateFlow()
@@ -211,7 +212,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Playback / navigation ─────────────────────────────────────────
 
-    fun togglePlayPause() = audioPlayer.togglePlayPause()
+    fun togglePlayPause() = audioPlayer.togglePlayPause(fallbackUri = _trackUri.value)
 
     fun startAnalyzer(): Boolean = analyzer.start(audioPlayer.audioSessionId)
     fun stopAnalyzer()           = analyzer.stop()
