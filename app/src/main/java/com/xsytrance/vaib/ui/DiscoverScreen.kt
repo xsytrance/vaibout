@@ -59,6 +59,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xsytrance.vaib.MainViewModel
+import com.xsytrance.vaib.core.design.TrackPaint
 import com.xsytrance.vaib.core.design.VaibColors
 import com.xsytrance.vaib.data.entities.VaibEntity
 import com.xsytrance.vaib.discover.ArchiveItem
@@ -598,14 +599,7 @@ private fun SavedVaibOrbitCard(
     vaib: VaibEntity,
     onClick: () -> Unit,
 ) {
-    val accent = when (vaib.mood.lowercase()) {
-        "chill"     -> Color(0xFF4DD0E1)
-        "cosmic"    -> Color(0xFFFFB74D)
-        "deep"      -> Color(0xFF7C4DFF)
-        "focus"     -> Color(0xFF80CBC4)
-        "energetic" -> Color(0xFF00E5FF)
-        else        -> VaibColors.CyanPulse
-    }
+    val paint = remember(vaib.id) { TrackPaint.fromVaibEntity(vaib) }
 
     Column(
         modifier = Modifier
@@ -614,7 +608,7 @@ private fun SavedVaibOrbitCard(
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFF0A0A0A))
             .border(
-                BorderStroke(0.8.dp, accent.copy(alpha = 0.25f)),
+                BorderStroke(0.8.dp, paint.borderColor),
                 RoundedCornerShape(14.dp),
             )
             .clickable(onClick = onClick)
@@ -634,14 +628,39 @@ private fun SavedVaibOrbitCard(
             if (vaib.mood.isNotEmpty()) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    vaib.mood,
-                    color      = accent.copy(alpha = 0.70f),
-                    fontSize   = 9.sp,
+                    paint.vibeLabel.uppercase(),
+                    color      = paint.primaryColor.copy(alpha = 0.65f),
+                    fontSize   = 7.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp,
+                )
+            }
+            if (vaib.sourceType.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    vaib.sourceType.lowercase().replace("_", " "),
+                    color      = paint.secondaryColor.copy(alpha = 0.40f),
+                    fontSize   = 7.sp,
                     fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.3.sp,
                 )
             }
         }
-        MiniWaveformBar(color = accent.copy(alpha = 0.35f))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment   = Alignment.CenterVertically,
+        ) {
+            MiniWaveformBar(
+                color    = paint.primaryColor.copy(alpha = 0.30f),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                paint.glyphs.first(),
+                color  = paint.primaryColor.copy(alpha = 0.22f),
+                fontSize = 8.sp,
+            )
+        }
     }
 }
 
@@ -660,12 +679,13 @@ private fun OpenWorldsRail(
         contentPadding        = PaddingValues(end = 24.dp),
     ) {
         items(items.take(15), key = { it.id }) { item ->
+            val paint = remember(item.id) { TrackPaint.fromArchiveItem(item) }
             OrbitTrackCard(
-                item       = item,
-                isLoading  = loadingId == item.id,
-                anyLoading = loadingId != null,
-                branchLabel = "Open Archive",
-                onClick    = { onItemClick(item) },
+                item        = item,
+                isLoading   = loadingId == item.id,
+                anyLoading  = loadingId != null,
+                branchLabel = "Open Archive \u00b7 " + paint.connectionLabel,
+                onClick     = { onItemClick(item) },
             )
         }
     }
@@ -741,26 +761,18 @@ private fun BranchOutRail(
     onItemClick: (ArchiveItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val branchLabels = listOf(
-        "connected by mood",
-        "open archive signal",
-        "nearby vibe",
-        "deep cut",
-        "cosmic branch",
-    )
-
     LazyRow(
         modifier              = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding        = PaddingValues(end = 24.dp),
     ) {
         items(items.take(10), key = { it.id }) { item ->
-            val label = branchLabels[abs(item.id.hashCode()) % branchLabels.size]
+            val paint = remember(item.id) { TrackPaint.fromArchiveItem(item) }
             OrbitTrackCard(
                 item        = item,
                 isLoading   = loadingId == item.id,
                 anyLoading  = loadingId != null,
-                branchLabel = label,
+                branchLabel = paint.connectionLabel,
                 onClick     = { onItemClick(item) },
             )
         }
@@ -777,7 +789,8 @@ private fun OrbitTrackCard(
     branchLabel: String,
     onClick: () -> Unit,
 ) {
-    val enabled = !anyLoading || isLoading
+    val paint    = remember(item.id) { TrackPaint.fromArchiveItem(item) }
+    val enabled  = !anyLoading || isLoading
     val dimAlpha = if (anyLoading && !isLoading) 0.30f else 1.0f
 
     Column(
@@ -786,7 +799,7 @@ private fun OrbitTrackCard(
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFF0A0A0A))
             .border(
-                BorderStroke(0.6.dp, VaibColors.CyanPulse.copy(alpha = 0.12f * dimAlpha)),
+                BorderStroke(0.6.dp, paint.borderColor.copy(alpha = dimAlpha)),
                 RoundedCornerShape(14.dp),
             )
             .clickable(enabled = enabled, onClick = onClick)
@@ -815,17 +828,17 @@ private fun OrbitTrackCard(
             )
         }
 
-        // Source + branch
+        // Vibe label + connection label (painted)
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment   = Alignment.CenterVertically,
         ) {
             Text(
-                "Internet Archive",
-                color         = VaibColors.CyanPulse.copy(alpha = 0.45f * dimAlpha),
-                fontSize      = 8.sp,
-                fontWeight    = FontWeight.Medium,
-                letterSpacing = 0.3.sp,
+                paint.vibeLabel.uppercase(),
+                color         = paint.primaryColor.copy(alpha = 0.55f * dimAlpha),
+                fontSize      = 7.sp,
+                fontWeight    = FontWeight.Bold,
+                letterSpacing = 0.8.sp,
             )
             Text(
                 "\u00b7",
@@ -834,28 +847,34 @@ private fun OrbitTrackCard(
             )
             Text(
                 branchLabel,
-                color         = VaibColors.VioletGlow.copy(alpha = 0.40f * dimAlpha),
+                color         = paint.secondaryColor.copy(alpha = 0.45f * dimAlpha),
                 fontSize      = 8.sp,
                 fontWeight    = FontWeight.Medium,
                 letterSpacing = 0.2.sp,
             )
         }
 
-        // Mini waveform + loading
+        // Mini waveform (painted) + loading
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment   = Alignment.CenterVertically,
         ) {
             MiniWaveformBar(
-                color = VaibColors.CyanPulse.copy(alpha = 0.25f * dimAlpha),
+                color    = paint.primaryColor.copy(alpha = 0.30f * dimAlpha),
                 modifier = Modifier.weight(1f),
             )
+            // Paint glyph hint
+            Text(
+                paint.glyphs.first(),
+                color  = paint.primaryColor.copy(alpha = 0.20f * dimAlpha),
+                fontSize = 8.sp,
+            )
             if (isLoading) {
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(6.dp))
                 CircularProgressIndicator(
                     modifier    = Modifier.size(14.dp),
-                    color       = VaibColors.CyanPulse,
+                    color       = paint.primaryColor,
                     strokeWidth = 1.5.dp,
                 )
             }

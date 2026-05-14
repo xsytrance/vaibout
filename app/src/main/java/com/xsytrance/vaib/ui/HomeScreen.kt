@@ -83,15 +83,6 @@ private fun formatMs(ms: Long): String {
     return "%d:%02d".format(s / 60, s % 60)
 }
 
-// ── Compact card accent gradients (one per saved vAIb slot mod 5) ─────
-private val CARD_ACCENTS = listOf(
-    listOf(Color(0xFF041420), Color(0xFF0E0524)),  // teal → violet
-    listOf(Color(0xFF051A0E), Color(0xFF050F20)),  // forest → navy
-    listOf(Color(0xFF18040E), Color(0xFF070420)),  // crimson → indigo
-    listOf(Color(0xFF0E1204), Color(0xFF04121A)),  // olive → teal
-    listOf(Color(0xFF160A04), Color(0xFF06041A)),  // ember → midnight
-)
-
 // ── Ambient background note data ──────────────────────────────────────
 
 private data class AmbientNote(
@@ -290,7 +281,6 @@ fun HomeScreen(
                         items(savedVaibs, key = { it.id }) { vaib ->
                             CompactVaibCard(
                                 vaib            = vaib,
-                                accentColors    = CARD_ACCENTS[(vaib.id % CARD_ACCENTS.size).toInt()],
                                 onClick         = { viewModel.loadVaib(vaib) },
                                 onDeleteRequest = { pendingDeleteVaib = vaib },
                             )
@@ -963,37 +953,45 @@ private fun AtmosphereChip(label: String, color: Color) {
 @Composable
 private fun CompactVaibCard(
     vaib: VaibEntity,
-    accentColors: List<Color>,
     onClick: () -> Unit,
     onDeleteRequest: () -> Unit,
 ) {
+    val paint = androidx.compose.runtime.remember(vaib.id) {
+        com.xsytrance.vaib.core.design.TrackPaint.fromVaibEntity(vaib)
+    }
     val eqLabel = runCatching { EqPreset.valueOf(vaib.eqPreset) }
         .getOrDefault(EqPreset.FLAT)
         .takeIf { it != EqPreset.FLAT }
         ?.label
+
+    val gradientColors = listOf(
+        paint.primaryColor.copy(alpha = 0.18f),
+        paint.secondaryColor.copy(alpha = 0.10f),
+    )
 
     Box(
         modifier = Modifier
             .size(width = 138.dp, height = 126.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(VaibColors.DeepBackground)
+            .border(
+                BorderStroke(0.6.dp, paint.borderColor),
+                RoundedCornerShape(14.dp),
+            )
             .clickable(onClick = onClick),
     ) {
         Column {
-            // Visual / artwork area
+            // Visual / artwork area — painted by track
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(76.dp)
                     .background(
-                        Brush.verticalGradient(
-                            colors = accentColors,
-                        )
+                        Brush.verticalGradient(colors = gradientColors),
                     ),
             ) {
-                // Single soft arc wave on the card
                 CompactCardWave(
-                    accentColor = accentColors.first(),
+                    accentColor = paint.primaryColor.copy(alpha = 0.25f),
                     modifier    = Modifier.fillMaxSize(),
                 )
             }
@@ -1007,10 +1005,18 @@ private fun CompactVaibCard(
                     maxLines   = 1,
                     overflow   = TextOverflow.Ellipsis,
                 )
-                if (eqLabel != null) {
+                if (vaib.mood.isNotEmpty()) {
+                    Text(
+                        paint.vibeLabel.uppercase(),
+                        color         = paint.primaryColor.copy(alpha = 0.55f),
+                        fontSize      = 7.sp,
+                        fontWeight    = FontWeight.Bold,
+                        letterSpacing = 0.7.sp,
+                    )
+                } else if (eqLabel != null) {
                     Text(
                         eqLabel,
-                        color    = VaibColors.VioletGlow.copy(0.62f),
+                        color    = paint.secondaryColor.copy(alpha = 0.50f),
                         fontSize = 9.sp,
                     )
                 }
