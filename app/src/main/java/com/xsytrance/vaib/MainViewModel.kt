@@ -227,8 +227,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun togglePlayPause() = audioPlayer.togglePlayPause(fallbackUri = _trackUri.value)
 
-    fun startAnalyzer(): Boolean = analyzer.start(audioPlayer.audioSessionId)
-    fun stopAnalyzer()           = analyzer.stop()
+    fun startAnalyzer(): Boolean {
+        val sessionId = audioPlayer.audioSessionId
+        android.util.Log.d("VaibDreamscape", "startAnalyzer() audioSessionId=$sessionId")
+        val ok = analyzer.start(sessionId)
+        android.util.Log.d("VaibDreamscape", "startAnalyzer() result=$ok")
+        return ok
+    }
+
+    fun stopAnalyzer() = analyzer.stop()
 
     fun navigateTo(screen: Screen) {
         _screen.value = screen

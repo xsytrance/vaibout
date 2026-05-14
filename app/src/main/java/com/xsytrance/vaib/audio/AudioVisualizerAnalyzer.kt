@@ -1,9 +1,12 @@
 package com.xsytrance.vaib.audio
 
 import android.media.audiofx.Visualizer
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.sqrt
+
+private const val TAG = "VaibVisualizer"
 
 /**
  * Lightweight wrapper around [Visualizer] that emits two reactive values:
@@ -27,12 +30,17 @@ class AudioVisualizerAnalyzer {
     val beatPulse: StateFlow<Float> = _beatPulse
 
     // Beat detection state — only touched in the Visualizer callback thread.
-    private var slowEnergy   = 0f
-    private var beatDebounce = 0   // countdown in callback ticks (~100 ms each)
+    private var slowEnergy    = 0f
+    private var beatDebounce  = 0   // countdown in callback ticks (~100 ms each)
+    private var logTickCounter = 0  // throttle periodic logging to ~every 3 s
 
     /** Returns true if the Visualizer attached successfully. */
     fun start(audioSessionId: Int): Boolean {
-        if (audioSessionId == 0) return false
+        Log.d(TAG, "start() audioSessionId=$audioSessionId")
+        if (audioSessionId == 0) {
+            Log.w(TAG, "start() rejected — audioSessionId is 0 (player not yet prepared)")
+            return false
+        }
         stop()
         return try {
             visualizer = Visualizer(audioSessionId).apply {
@@ -73,6 +81,13 @@ class AudioVisualizerAnalyzer {
                             } else if (beatDebounce > 0) {
                                 beatDebounce--
                             }
+
+                            // Periodic diagnostic log (~every 3 s at 10 Hz callbacks).
+                            if (++logTickCounter % 30 == 0) {
+                                Log.d(TAG, "energy=%.3f rms=%.3f beat=%.2f slowEnergy=%.3f waveformSize=${waveform.size}".format(
+                                    _energy.value, rms, _beatPulse.value, slowEnergy
+                                ))
+                            }
                         }
 
                         override fun onFftDataCapture(
@@ -87,19 +102,23 @@ class AudioVisualizerAnalyzer {
                 )
                 enabled = true
             }
+            Log.d(TAG, "Visualizer attached successfully to session $audioSessionId")
             true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "Visualizer attach failed: ${e.message}")
             visualizer = null
             false
         }
     }
 
     fun stop() {
+        Log.d(TAG, "stop() releasing Visualizer")
         visualizer?.apply { enabled = false; release() }
-        visualizer    = null
-        slowEnergy    = 0f
-        beatDebounce  = 0
-        _energy.value     = 0f
-        _beatPulse.value  = 0f
+        visualizer      = null
+        slowEnergy      = 0f
+        beatDebounce    = 0
+        logTickCounter  = 0
+        _energy.value    = 0f
+        _beatPulse.value = 0f
     }
 }
