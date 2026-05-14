@@ -52,8 +52,8 @@ import com.xsytrance.vaib.MainViewModel
 import com.xsytrance.vaib.core.design.VaibColors
 import com.xsytrance.vaib.visualizer.VisualizerSurface
 
-// Set to false to remove debug overlay before release.
-private const val DEBUG_VISUALIZER = true
+// Set to true to re-enable energy/beat debug overlay during tuning.
+private const val DEBUG_VISUALIZER = false
 private const val TAG_DS = "VaibDreamscape"
 
 @Composable
