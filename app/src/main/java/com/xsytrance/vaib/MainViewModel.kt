@@ -51,6 +51,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _playbackFraction = MutableStateFlow(0f)
     val playbackFraction: StateFlow<Float> = _playbackFraction.asStateFlow()
 
+    private val _currentPositionMs = MutableStateFlow(0L)
+    val currentPositionMs: StateFlow<Long> = _currentPositionMs.asStateFlow()
+
+    private val _durationMs = MutableStateFlow(0L)
+    val durationMs: StateFlow<Long> = _durationMs.asStateFlow()
+
     private val _currentEqPreset = MutableStateFlow(EqPreset.FLAT)
     val currentEqPreset: StateFlow<EqPreset> = _currentEqPreset.asStateFlow()
 
@@ -122,6 +128,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             _playbackFraction.value =
                                 (audioPlayer.currentPositionMs.toFloat() / dur.toFloat())
                                     .coerceIn(0f, 1f)
+                            _currentPositionMs.value = audioPlayer.currentPositionMs.coerceAtLeast(0)
+                            _durationMs.value = dur
                         }
                         delay(250)
                     }
@@ -144,6 +152,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _trackUri.value  = uri
         _trackName.value = cleanName
         _playbackFraction.value = 0f
+        _currentPositionMs.value = 0L
+        _durationMs.value = 0L
         _currentMood.value = ""
         trackPrefs.save(uri, cleanName)
         audioPlayer.loadTrack(uri)
