@@ -120,15 +120,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val headphones = AudioOutputDetector.hasPersonalAudioOutput(application)
         val isRemote = uri.scheme == "https" || uri.scheme == "http"
 
+        // Always prepare the track so UI shows loaded state
+        if (isRemote) {
+            audioPlayer.prepareTrack(uri)
+        }
+
+        // Only autoplay if safe personal audio is detected
         if (headphones) {
-            // Safe to autoplay — prepare remote tracks, then play
-            if (isRemote) {
-                audioPlayer.prepareTrack(uri)
-            }
             audioPlayer.player.play()
         }
-        // If no headphones: local tracks are already prepared (paused),
-        // remote tracks remain unprepared to avoid background network
     }
 
     // ── Position ticker ───────────────────────────────────────────────
@@ -205,6 +205,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
+    }
+
+    /** Mood-first discovery: maps mood labels to Internet Archive search queries. */
+    fun fetchMoodItems(mood: String) {
+        val query = when (mood.trim().lowercase()) {
+            "chill"     -> "chill ambient relaxing calm"
+            "cosmic"    -> "cosmic space ambient experimental"
+            "deep"      -> "deep dub atmospheric low"
+            "focus"     -> "instrumental minimal focus"
+            "energetic" -> "upbeat electronic energetic"
+            else        -> ""
+        }
+        fetchDiscoverItems(query)
     }
 
     fun loadOnlineTrack(item: ArchiveItem) {
