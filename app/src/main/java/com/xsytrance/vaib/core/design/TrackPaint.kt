@@ -134,7 +134,7 @@ data class TrackPaint(
                 // 3. Final fallback: hash-based selection
                 ?: hashFamily(title + creator)
 
-            val seed = (title + creator).hashCode().absoluteValue
+            val seed = safeHash(title + creator)
 
             return TrackPaint(
                 primaryColor   = family.primary,
@@ -144,7 +144,7 @@ data class TrackPaint(
                 glyphs         = family.glyphs,
                 vibeLabel      = family.vibeLabels[seed % family.vibeLabels.size],
                 connectionLabel = CONNECTION_LABELS[seed % CONNECTION_LABELS.size],
-                energy         = 0.3f + (seed % 7) * 0.1f, // 0.3–0.9
+                energy         = 0.3f + (seed % 7).toFloat() * 0.1f, // 0.3–0.9
             )
         }
 
@@ -173,8 +173,13 @@ data class TrackPaint(
         }
 
         private fun hashFamily(seed: String): PaintFamily {
-            val idx = seed.hashCode().absoluteValue % ALL_FAMILIES.size
+            val idx = safeHash(seed) % ALL_FAMILIES.size
             return ALL_FAMILIES[idx]
+        }
+
+        private fun safeHash(value: String): Int {
+            val h = value.hashCode()
+            return if (h == Int.MIN_VALUE) 0 else Math.abs(h)
         }
     }
 }
