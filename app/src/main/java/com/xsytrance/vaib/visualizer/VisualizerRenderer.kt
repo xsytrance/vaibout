@@ -117,17 +117,17 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
             }
         """.trimIndent()
 
-        //  Solo Dreamscape — audio-reactive neon pulse.
+        //  Solo Dreamscape — audio-reactive neon pulse, calibrated brightness.
         //
-        //  uEnergy  : raw RMS energy 0..1 from analyzer (~0.25–0.47 on device).
-        //  uBeat    : intensity 0..1 from Kotlin, decays at ~10 Hz.
-        //  uBeatAge : seconds since last beat trigger, GL-thread 60 fps.
+        //  uEnergy  : raw RMS energy (~0.25–0.47 on S24 Ultra).
+        //  uBeat    : 0..1 decaying at ~10 Hz from Kotlin.
+        //  uBeatAge : seconds since last beat, computed on GL thread at 60 fps.
         //
-        //  Energy remap e: maps real 0.05–0.45 band to full 0–1 visual range
-        //  so typical music drives the full dynamic range of the visualizer.
+        //  e = clamp((uEnergy - 0.05) / 0.40) maps the real device band to 0–1
+        //  so the full dynamic range is used. Coefficients are calibrated to the
+        //  original brightness so e=0.75 (typical music) matches original feel.
         //
         //  Beat ring: r 0.10→0.80 in ~400 ms. Echo follows 100 ms behind.
-        //  Burst: sharp centre flash at beat moment, fades in ~150 ms.
         private val FRAG_SRC = """
             precision mediump float;
             uniform vec2  uResolution;
@@ -144,70 +144,64 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
                 float angle = atan(uv.y, uv.x);
 
                 // Remap raw energy to the observed device band (0.05–0.45 → 0–1).
-                // Ensures typical music drives full visual intensity range.
                 float e = clamp((uEnergy - 0.05) / 0.40, 0.0, 1.0);
 
-                // Polar warp: organic ripple on rings, dual-frequency with energy.
-                float warp = sin(angle * 3.0 + uTime * 0.55) * (0.007 + e * 0.025)
-                           + sin(angle * 6.0 - uTime * 0.33) * e * 0.008;
+                // Single-harmonic polar warp — original cost, energy-driven depth.
+                float warp = sin(angle * 3.0 + uTime * 0.55)
+                           * (0.007 + e * 0.015);
                 float dw = d + warp;
 
-                // Breathing base radius; remapped energy pushes rings outward.
+                // Breathing base radius; energy pushes rings outward.
                 float breathe = 0.21 + 0.033 * sin(uTime * 0.65);
-                float r1 = breathe   + e * 0.16;
-                float r2 = r1 * 1.40 + e * 0.10;
-                float r3 = r1 * 1.82 + e * 0.07;
-                float r4 = r1 * 2.28 + e * 0.04;
-                float r5 = r1 * 2.78 + e * 0.025;
+                float r1 = breathe   + e * 0.12;
+                float r2 = r1 * 1.40 + e * 0.07;
+                float r3 = r1 * 1.82 + e * 0.05;
+                float r4 = r1 * 2.28 + e * 0.03;
+                float r5 = r1 * 2.78 + e * 0.018;
 
-                // Glow rings — numerator scales with e for visible brightness jump.
-                float ring1 = (0.022 + e * 0.040) / (abs(dw - r1) + 0.008);
-                float ring2 = (0.014 + e * 0.022) / (abs(dw - r2) + 0.011);
-                float ring3 = (0.008 + e * 0.012) / (abs(dw - r3) + 0.014);
-                float ring4 = (0.005 + e * 0.006) / (abs(dw - r4) + 0.018);
-                float ring5 = (0.003 + e * 0.003) / (abs(dw - r5) + 0.022);
+                // Glow rings — numerators match original brightness, small e lift.
+                float ring1 = (0.020 + e * 0.010) / (abs(dw - r1) + 0.009);
+                float ring2 = (0.012 + e * 0.006) / (abs(dw - r2) + 0.012);
+                float ring3 = (0.007 + e * 0.004) / (abs(dw - r3) + 0.016);
+                float ring4 = (0.004 + e * 0.002) / (abs(dw - r4) + 0.020);
+                float ring5 = (0.002 + e * 0.001) / (abs(dw - r5) + 0.025);
 
                 // Primary beat ripple: smooth 60 fps expansion via uBeatAge.
                 float beatR    = 0.10 + uBeatAge * 1.75;
                 float beatFade = max(0.0, 1.0 - uBeatAge * 2.5);
-                float beatRing = beatFade * 0.090 / (abs(dw - beatR) + 0.005);
+                float beatRing = beatFade * 0.045 / (abs(dw - beatR) + 0.006);
 
                 // Echo ring: 100 ms behind, dimmer, faster fade.
                 float age2      = max(0.0, uBeatAge - 0.10);
                 float beatR2    = 0.10 + age2 * 1.75;
                 float beatFade2 = max(0.0, 1.0 - age2 * 3.0);
-                float beatRing2 = beatFade2 * 0.045 / (abs(dw - beatR2) + 0.008);
+                float beatRing2 = beatFade2 * 0.022 / (abs(dw - beatR2) + 0.009);
 
-                // Central bloom: energy drives ambient glow from centre outward.
-                float bloom = 0.060 / (d + 0.07)
-                            * (0.12 + e * 1.40 + uBeat * 1.00);
+                // Central bloom — original denominator and scale, e-driven.
+                float bloom = 0.040 / (d + 0.09)
+                            * (0.20 + e * 0.70 + uBeat * 0.45);
 
-                float baseTotal = ring1
-                                + ring2 * 0.70
-                                + ring3 * 0.45
-                                + ring4 * 0.25
-                                + ring5 * 0.12
-                                + beatRing
-                                + beatRing2
-                                + bloom;
+                float total = ring1
+                            + ring2 * 0.70
+                            + ring3 * 0.45
+                            + ring4 * 0.25
+                            + ring5 * 0.12
+                            + beatRing
+                            + beatRing2
+                            + bloom;
 
-                // Energy + beat drive overall brightness.
-                baseTotal *= (0.50 + e * 1.30 + uBeat * 0.90);
-
-                // Beat burst: sharp star-like centre flash, fades in ~150 ms.
-                float burst = max(0.0, 1.0 - uBeatAge * 6.5) * 0.18 / (d + 0.045);
-
-                float total = baseTotal + burst;
+                // Brightness multiplier calibrated to original levels at e≈0.75.
+                // At e=0.75, typical music: 0.40+0.26 = 0.66 ≈ original 0.64.
+                // At e=1.0, peak energy:    0.40+0.35 = 0.75 — visibly brighter.
+                total *= (0.40 + e * 0.35 + uBeat * 0.45);
 
                 // Colour: cyan identity, slow violet drift, white-hot on beat.
                 vec3 cyan   = vec3(0.000, 0.898, 1.000);
                 vec3 violet = vec3(0.545, 0.361, 0.969);
                 vec3 white  = vec3(1.000, 1.000, 1.000);
                 float drift = 0.5 + 0.5 * sin(uTime * 0.18 + d * 2.0);
-                vec3 colour = mix(cyan, violet, drift * 0.25 + e * 0.30);
-                // Layered white flash: uBeat slow decay + sharp uBeatAge spike.
-                float beatWhite = uBeat * 0.55 + max(0.0, 1.0 - uBeatAge * 4.0) * 0.30;
-                colour = mix(colour, white, clamp(beatWhite, 0.0, 0.85));
+                vec3 colour = mix(cyan, violet, drift * 0.30 + e * 0.20);
+                colour = mix(colour, white, uBeat * 0.35);
 
                 // OLED-safe: true black wherever total is zero.
                 gl_FragColor = vec4(clamp(colour * total, 0.0, 1.0), 1.0);
