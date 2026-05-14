@@ -59,6 +59,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xsytrance.vaib.MainViewModel
+import com.xsytrance.vaib.core.design.OrbitAtmosphereLayer
 import com.xsytrance.vaib.core.design.TrackPaint
 import com.xsytrance.vaib.core.design.VaibColors
 import com.xsytrance.vaib.data.entities.VaibEntity
@@ -129,6 +130,13 @@ fun DiscoverScreen(
             .background(Color.Black)
             .systemBarsPadding(),
     ) {
+        // Floating note atmosphere behind content
+        OrbitAtmosphereLayer(
+            moodColor         = VaibColors.CyanPulse,
+            secondaryMoodColor = VaibColors.VioletGlow,
+            modifier          = Modifier.fillMaxSize(),
+        )
+
         LazyColumn(
             modifier       = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 24.dp),
@@ -472,11 +480,11 @@ private fun SectionHeader(title: String, subtitle: String) {
         }
         Text(
             subtitle,
-            color         = VaibColors.TextSoft.copy(alpha = 0.35f),
-            fontSize      = 10.sp,
+            color         = VaibColors.TextSoft.copy(alpha = 0.22f),
+            fontSize      = 9.sp,
             fontWeight    = FontWeight.Medium,
-            letterSpacing = 0.3.sp,
-            modifier      = Modifier.padding(start = 14.dp, top = 2.dp),
+            letterSpacing = 0.2.sp,
+            modifier      = Modifier.padding(start = 14.dp, top = 1.dp),
         )
     }
 }
@@ -635,16 +643,6 @@ private fun SavedVaibOrbitCard(
                     letterSpacing = 0.8.sp,
                 )
             }
-            if (vaib.sourceType.isNotEmpty()) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    vaib.sourceType.lowercase().replace("_", " "),
-                    color      = paint.secondaryColor.copy(alpha = 0.40f),
-                    fontSize   = 7.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.3.sp,
-                )
-            }
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -684,7 +682,7 @@ private fun OpenWorldsRail(
                 item        = item,
                 isLoading   = loadingId == item.id,
                 anyLoading  = loadingId != null,
-                branchLabel = "Open Archive \u00b7 " + paint.connectionLabel,
+                branchLabel = paint.connectionLabel,
                 onClick     = { onItemClick(item) },
             )
         }
@@ -804,7 +802,7 @@ private fun OrbitTrackCard(
             )
             .clickable(enabled = enabled, onClick = onClick)
             .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // Title
         Text(
@@ -817,20 +815,9 @@ private fun OrbitTrackCard(
             lineHeight = 16.sp,
         )
 
-        // Creator
-        if (item.creator.isNotEmpty()) {
-            Text(
-                item.creator,
-                color    = VaibColors.TextSoft.copy(alpha = 0.50f * dimAlpha),
-                fontSize = 10.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        // Vibe label + connection label (painted)
+        // Compact badge row: vibe · source · glyph
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment   = Alignment.CenterVertically,
         ) {
             Text(
@@ -842,43 +829,36 @@ private fun OrbitTrackCard(
             )
             Text(
                 "\u00b7",
-                color  = VaibColors.TextSoft.copy(alpha = 0.20f),
-                fontSize = 8.sp,
+                color    = VaibColors.TextSoft.copy(alpha = 0.20f),
+                fontSize = 7.sp,
             )
             Text(
-                branchLabel,
-                color         = paint.secondaryColor.copy(alpha = 0.45f * dimAlpha),
-                fontSize      = 8.sp,
+                "archive",
+                color      = paint.secondaryColor.copy(alpha = 0.40f * dimAlpha),
+                fontSize      = 7.sp,
                 fontWeight    = FontWeight.Medium,
                 letterSpacing = 0.2.sp,
             )
-        }
-
-        // Mini waveform (painted) + loading
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment   = Alignment.CenterVertically,
-        ) {
-            MiniWaveformBar(
-                color    = paint.primaryColor.copy(alpha = 0.30f * dimAlpha),
-                modifier = Modifier.weight(1f),
-            )
-            // Paint glyph hint
             Text(
                 paint.glyphs.first(),
-                color  = paint.primaryColor.copy(alpha = 0.20f * dimAlpha),
-                fontSize = 8.sp,
+                color      = paint.primaryColor.copy(alpha = 0.22f * dimAlpha),
+                fontSize   = 8.sp,
             )
             if (isLoading) {
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(4.dp))
                 CircularProgressIndicator(
-                    modifier    = Modifier.size(14.dp),
+                    modifier    = Modifier.size(12.dp),
                     color       = paint.primaryColor,
                     strokeWidth = 1.5.dp,
                 )
             }
         }
+
+        // Mini waveform (painted)
+        MiniWaveformBar(
+            color    = paint.primaryColor.copy(alpha = 0.28f * dimAlpha),
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
