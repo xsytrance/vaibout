@@ -52,8 +52,9 @@ class MainActivity : ComponentActivity() {
                         onBack    = { viewModel.navigateTo(Screen.HOME) },
                     )
                     Screen.DISCOVER -> DiscoverScreen(
-                        viewModel = viewModel,
-                        onBack    = { viewModel.navigateTo(Screen.HOME) },
+                        viewModel   = viewModel,
+                        onBack      = { viewModel.navigateTo(Screen.HOME) },
+                        onPickTrack = { pickAudio.launch(arrayOf("audio/*")) },
                     )
                 }
             }
