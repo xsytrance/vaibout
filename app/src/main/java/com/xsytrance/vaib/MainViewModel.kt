@@ -90,11 +90,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _queueReady = MutableStateFlow(false)
     val queueReady: StateFlow<Boolean> = _queueReady.asStateFlow()
 
+    // ── Visual Signal Engine ──────────────────────────────────────────
+
+    val visualSignal = com.xsytrance.vaib.core.design.VisualSignalEngine(
+        energyFlow    = analyzer.energy,
+        beatPulseFlow = analyzer.beatPulse,
+        isPlayingFlow = audioPlayer.isPlaying,
+    )
+
     init {
         restorePersistedTrack(application)
         prepareStartupTrack(application)
         prepareSessionQueue()
         startPositionTicker()
+        startVisualSignalTicker()
         observePlaybackEnd()
     }
 
@@ -192,6 +201,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         delay(250)
                     }
                 }
+            }
+        }
+    }
+
+    /** Ticks the VisualSignalEngine ambient breath and beat phase. */
+    private fun startVisualSignalTicker() {
+        viewModelScope.launch {
+            var breathAccumulator = 0f
+            var beatAccumulator = 0f
+            while (true) {
+                breathAccumulator += 0.016f // ~60fps increment for 4s cycle
+                if (breathAccumulator > 1f) breathAccumulator -= 1f
+                visualSignal.updateAmbientBreath(breathAccumulator)
+
+                beatAccumulator += 0.042f // ~960ms beat increment
+                if (beatAccumulator > 1f) beatAccumulator -= 1f
+                visualSignal.updateBeatPhase(beatAccumulator)
+
+                delay(64) // ~15Hz update rate
             }
         }
     }

@@ -223,6 +223,7 @@ fun HomeScreen(
                 CockpitActions(
                     hasTrack         = hasTrack,
                     atmosphere       = atmosphere,
+                    beatPulse        = viewModel.visualSignal.beatPulse,
                     onVaibOut        = onEnterDreamscape,
                     onPickTrack      = onPickTrack,
                     onDiscover       = onDiscoverMusic,
@@ -1321,12 +1322,17 @@ private fun CockpitVisualizer(
 private fun CockpitActions(
     hasTrack: Boolean,
     atmosphere: VaibAtmosphere,
+    beatPulse: kotlinx.coroutines.flow.StateFlow<Float>,
     onVaibOut: () -> Unit,
     onPickTrack: () -> Unit,
     onDiscover: () -> Unit,
 ) {
+    val beat by beatPulse.collectAsState()
+    val pulseAlpha = (beat * 0.25f).coerceIn(0f, 0.25f)
+
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // vAIb out! — dark glassy cockpit button
+        // vAIb out! — dark glassy cockpit button with beat pulse
+        val baseBorderAlpha = if (hasTrack) 0.45f else 0.12f
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1335,7 +1341,7 @@ private fun CockpitActions(
                 .background(Color(0xFF0A0A0A))
                 .border(
                     BorderStroke(1.dp, atmosphere.primaryColor.copy(
-                        alpha = if (hasTrack) 0.45f else 0.12f
+                        alpha = (baseBorderAlpha + pulseAlpha).coerceIn(0f, 1f)
                     )),
                     RoundedCornerShape(14.dp),
                 )
