@@ -23,12 +23,18 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".kimi"
+            versionNameSuffix = "-kimi"
+            manifestPlaceholders["appLabel"] = "vAIb out! Kimi"
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            manifestPlaceholders["appLabel"] = "vAIb out!"
         }
     }
 

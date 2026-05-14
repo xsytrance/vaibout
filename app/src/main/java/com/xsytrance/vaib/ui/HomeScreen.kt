@@ -176,6 +176,8 @@ fun HomeScreen(
                     fontWeight    = FontWeight.SemiBold,
                     letterSpacing = 2.2.sp,
                 )
+                Spacer(Modifier.height(10.dp))
+                KimiLabBadge(atmosphere = atmosphere)
                 Spacer(Modifier.height(20.dp))
             }
 
@@ -301,6 +303,12 @@ fun HomeScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                 }
+            }
+
+            // ── Kimi experiment footer ─────────────────────────────────
+            item {
+                Spacer(Modifier.height(24.dp))
+                KimiDebugFooter(atmosphere = atmosphere)
             }
         }
     }
@@ -1101,5 +1109,67 @@ internal fun VaibGlowButton(
         elevation = ButtonDefaults.buttonElevation(0.dp),
     ) {
         Text(label, fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+    }
+}
+
+// ── Kimi Dreamdeck Lab badge ──────────────────────────────────────────
+
+@Composable
+private fun KimiLabBadge(atmosphere: VaibAtmosphere) {
+    Row(
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color(0xFF0A0A0A))
+                .border(
+                    BorderStroke(0.5.dp, atmosphere.primaryColor.copy(alpha = 0.35f)),
+                    RoundedCornerShape(6.dp)
+                )
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        ) {
+            Text(
+                "KIMI DREAMDECK LAB",
+                color         = atmosphere.primaryColor.copy(alpha = 0.85f),
+                fontSize      = 8.sp,
+                fontWeight    = FontWeight.Bold,
+                letterSpacing = 1.2.sp,
+            )
+        }
+        Text(
+            "Paintable Atmosphere Test",
+            color         = VaibColors.TextSoft.copy(alpha = 0.38f),
+            fontSize      = 8.sp,
+            fontWeight    = FontWeight.Medium,
+            letterSpacing = 0.4.sp,
+        )
+    }
+}
+
+// ── Kimi experiment debug footer ──────────────────────────────────────
+
+@Composable
+private fun KimiDebugFooter(atmosphere: VaibAtmosphere) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier            = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            "branch: kimi-experiment-dreamdeck",
+            color         = VaibColors.TextSoft.copy(alpha = 0.22f),
+            fontSize      = 8.sp,
+            fontWeight    = FontWeight.Medium,
+            letterSpacing = 0.3.sp,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Atmosphere branch \u2022 Kimi experiment",
+            color         = atmosphere.secondaryColor.copy(alpha = 0.18f),
+            fontSize      = 7.sp,
+            fontWeight    = FontWeight.Medium,
+            letterSpacing = 0.3.sp,
+        )
     }
 }
