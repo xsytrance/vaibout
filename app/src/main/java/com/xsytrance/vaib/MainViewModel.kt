@@ -135,8 +135,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun loadTrack(uri: Uri, displayName: String?) {
         val cleanName = displayName
             ?.let { name ->
+                val decoded = try { java.net.URLDecoder.decode(name, "UTF-8") } catch (_: Exception) { name }
                 listOf(".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg", ".opus")
-                    .fold(name) { acc, ext -> acc.removeSuffix(ext) }
+                    .fold(decoded) { acc, ext -> acc.removeSuffix(ext) }
+                    .trim()
             }
             ?: "Unknown Track"
         _trackUri.value  = uri

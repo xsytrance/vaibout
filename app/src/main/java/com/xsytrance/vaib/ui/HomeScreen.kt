@@ -16,10 +16,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -55,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
@@ -63,40 +66,39 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xsytrance.vaib.MainViewModel
 import com.xsytrance.vaib.audio.EqPreset
+import com.xsytrance.vaib.core.design.VaibAtmosphere
 import com.xsytrance.vaib.core.design.VaibColors
 import com.xsytrance.vaib.data.entities.VaibEntity
 import com.xsytrance.vaib.vaib.VaibCard
-import androidx.compose.foundation.layout.absoluteOffset
-import androidx.compose.foundation.layout.BoxWithConstraints
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.sin
 
 private val MOOD_OPTIONS = listOf("Deep", "Chill", "Energetic", "Cosmic", "Focus")
 
-// ── Ambient background data ───────────────────────────────────────────
+// ── Ambient background — floating note data ───────────────────────────
 
 private data class AmbientNote(
-    val char: String,
-    val baseX: Float,    // 0..1 of screen width
-    val baseY: Float,    // 0..1 starting position
-    val speed: Float,    // drift speed (screen fractions per loop)
+    val glyphIndex: Int,     // index into atmosphere.particleGlyphs
+    val baseX: Float,        // 0..1 of screen width
+    val baseY: Float,        // 0..1 starting position
+    val speed: Float,        // upward drift speed (screen fractions per loop)
     val alpha: Float,
-    val swayAmp: Float,  // horizontal sway amplitude (screen fraction)
-    val swayFreq: Float, // cycles per loop
-    val phase: Float,    // initial phase offset
-    val isCyan: Boolean = true,
+    val swayAmp: Float,      // horizontal sway amplitude (screen fraction)
+    val swayFreq: Float,
+    val phase: Float,
+    val isPrimary: Boolean = true,  // primaryColor vs secondaryColor
 )
 
-private val AMBIENT_NOTES = listOf(
-    AmbientNote("♪", 0.08f, 0.10f, 0.12f, 0.058f, 0.028f, 1.20f, 0.00f),
-    AmbientNote("♫", 0.86f, 0.38f, 0.09f, 0.044f, 0.022f, 0.80f, 1.80f, false),
-    AmbientNote("♬", 0.22f, 0.68f, 0.14f, 0.052f, 0.035f, 1.50f, 3.50f),
-    AmbientNote("♪", 0.72f, 0.22f, 0.11f, 0.038f, 0.028f, 1.00f, 0.90f, false),
-    AmbientNote("♫", 0.44f, 0.82f, 0.08f, 0.034f, 0.022f, 0.70f, 2.40f),
-    AmbientNote("♬", 0.14f, 0.52f, 0.13f, 0.048f, 0.038f, 1.30f, 4.20f, false),
-    AmbientNote("♪", 0.91f, 0.72f, 0.10f, 0.036f, 0.026f, 0.90f, 1.20f),
-    AmbientNote("♫", 0.58f, 0.06f, 0.15f, 0.040f, 0.038f, 1.10f, 5.10f, false),
+private val AMBIENT_NOTE_DATA = listOf(
+    AmbientNote(0, 0.08f, 0.10f, 0.12f, 0.085f, 0.028f, 1.20f, 0.00f),
+    AmbientNote(1, 0.86f, 0.38f, 0.09f, 0.068f, 0.022f, 0.80f, 1.80f, false),
+    AmbientNote(2, 0.22f, 0.68f, 0.14f, 0.078f, 0.035f, 1.50f, 3.50f),
+    AmbientNote(0, 0.72f, 0.22f, 0.11f, 0.062f, 0.028f, 1.00f, 0.90f, false),
+    AmbientNote(1, 0.44f, 0.82f, 0.08f, 0.072f, 0.022f, 0.70f, 2.40f),
+    AmbientNote(2, 0.14f, 0.52f, 0.13f, 0.065f, 0.038f, 1.30f, 4.20f, false),
+    AmbientNote(0, 0.91f, 0.72f, 0.10f, 0.060f, 0.026f, 0.90f, 1.20f),
+    AmbientNote(1, 0.58f, 0.06f, 0.15f, 0.070f, 0.038f, 1.10f, 5.10f, false),
 )
 
 // ── HomeScreen ────────────────────────────────────────────────────────
@@ -118,19 +120,23 @@ fun HomeScreen(
     val currentMood      by viewModel.currentMood.collectAsState()
     val hasTrack = trackUri != null
 
-    var showSaveDialog    by remember { mutableStateOf(false) }
-    var nameInput         by remember { mutableStateOf("") }
-    var selectedMood      by remember { mutableStateOf("") }
-    var selectedEqPreset  by remember { mutableStateOf(EqPreset.FLAT) }
-    var pendingDeleteVaib by remember { mutableStateOf<VaibEntity?>(null) }
+    // Atmosphere drives ambient colors and glyphs — defaults to cyan/violet
+    val atmosphere = VaibAtmosphere.Default
+
+    var showSaveDialog       by remember { mutableStateOf(false) }
+    var nameInput            by remember { mutableStateOf("") }
+    var selectedMood         by remember { mutableStateOf("") }
+    var selectedEqPreset     by remember { mutableStateOf(EqPreset.FLAT) }
+    // Capture the EQ preset active BEFORE the dialog opens so we can revert on cancel
+    var eqPresetBeforeDialog by remember { mutableStateOf(EqPreset.FLAT) }
+    var pendingDeleteVaib    by remember { mutableStateOf<VaibEntity?>(null) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        // Floating notes + particles — rendered behind all content
-        AmbientBackground(modifier = Modifier.fillMaxSize())
+        AmbientBackground(atmosphere = atmosphere, modifier = Modifier.fillMaxSize())
 
         LazyColumn(
             modifier       = Modifier.fillMaxSize().systemBarsPadding(),
@@ -149,7 +155,7 @@ fun HomeScreen(
                 )
                 Text(
                     text          = "let's chill",
-                    color         = VaibColors.CyanPulse,
+                    color         = atmosphere.primaryColor,
                     fontSize      = 12.sp,
                     letterSpacing = 0.3.sp,
                     fontWeight    = FontWeight.Medium,
@@ -157,7 +163,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(22.dp))
             }
 
-            // ── Player panel (Now Playing + Bar Viz + Progress) ───────
+            // ── Player panel ──────────────────────────────────────────
             item {
                 PlayerPanel(
                     trackName        = trackName,
@@ -168,11 +174,12 @@ fun HomeScreen(
                     hasTrack         = hasTrack,
                     currentEqPreset  = currentEqPreset,
                     currentMood      = currentMood,
+                    atmosphere       = atmosphere,
                 )
                 Spacer(modifier = Modifier.height(22.dp))
             }
 
-            // ── Transport controls ────────────────────────────────────
+            // ── Transport ─────────────────────────────────────────────
             item {
                 TransportControls(
                     isPlaying   = isPlaying,
@@ -182,7 +189,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(22.dp))
             }
 
-            // ── vAIb out! hero button ─────────────────────────────────
+            // ── vAIb out! hero ────────────────────────────────────────
             item {
                 Button(
                     onClick   = onEnterDreamscape,
@@ -190,9 +197,9 @@ fun HomeScreen(
                     modifier  = Modifier.fillMaxWidth().height(64.dp),
                     shape     = RoundedCornerShape(18.dp),
                     colors    = ButtonDefaults.buttonColors(
-                        containerColor         = VaibColors.CyanPulse,
+                        containerColor         = atmosphere.primaryColor,
                         contentColor           = Color.Black,
-                        disabledContainerColor = VaibColors.CyanPulse.copy(alpha = 0.10f),
+                        disabledContainerColor = atmosphere.primaryColor.copy(alpha = 0.10f),
                         disabledContentColor   = VaibColors.TextSoft.copy(alpha = 0.28f),
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
@@ -228,6 +235,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(2.dp))
                     TextButton(
                         onClick  = {
+                            eqPresetBeforeDialog = currentEqPreset
                             selectedEqPreset = currentEqPreset
                             showSaveDialog = true
                         },
@@ -268,7 +276,7 @@ fun HomeScreen(
         }
     }
 
-    // ── Delete vAIb confirmation dialog ──────────────────────────────
+    // ── Delete confirmation ───────────────────────────────────────────
     pendingDeleteVaib?.let { vaib ->
         AlertDialog(
             onDismissRequest  = { pendingDeleteVaib = null },
@@ -276,14 +284,11 @@ fun HomeScreen(
             titleContentColor = Color.White,
             textContentColor  = VaibColors.TextSoft,
             title = { Text("Delete vAIb?", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-            text  = { Text("\"${vaib.vaibName}\" will be removed from your collection.") },
+            text  = { Text("\"${vaib.vaibName}\" will be removed.") },
             confirmButton = {
                 Button(
-                    onClick = {
-                        viewModel.deleteVaib(vaib)
-                        pendingDeleteVaib = null
-                    },
-                    colors = ButtonDefaults.buttonColors(
+                    onClick = { viewModel.deleteVaib(vaib); pendingDeleteVaib = null },
+                    colors  = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFCC3333),
                         contentColor   = Color.White,
                     ),
@@ -302,14 +307,25 @@ fun HomeScreen(
     // ── Save vAIb dialog ──────────────────────────────────────────────
     if (showSaveDialog) {
         val trackName2 by viewModel.trackName.collectAsState()
-        val dismiss = {
+
+        // Cancel: revert EQ to what it was before the dialog opened
+        val dismissWithCancel = {
+            showSaveDialog = false
+            nameInput = ""
+            selectedMood = ""
+            selectedEqPreset = EqPreset.FLAT
+            viewModel.applyEqPreset(eqPresetBeforeDialog)
+        }
+        // Confirm: keep the selected EQ (already applied via live preview)
+        val dismissWithSave = {
             showSaveDialog = false
             nameInput = ""
             selectedMood = ""
             selectedEqPreset = EqPreset.FLAT
         }
+
         AlertDialog(
-            onDismissRequest  = dismiss,
+            onDismissRequest  = dismissWithCancel,
             containerColor    = VaibColors.DeepBackground,
             titleContentColor = Color.White,
             textContentColor  = VaibColors.TextSoft,
@@ -416,7 +432,7 @@ fun HomeScreen(
                             selectedMood,
                             selectedEqPreset,
                         )
-                        dismiss()
+                        dismissWithSave()
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = VaibColors.CyanPulse,
@@ -427,16 +443,21 @@ fun HomeScreen(
                 ) { Text("Save", fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = dismiss) { Text("Cancel", color = VaibColors.TextSoft) }
+                TextButton(onClick = dismissWithCancel) {
+                    Text("Cancel", color = VaibColors.TextSoft)
+                }
             },
         )
     }
 }
 
-// ── Ambient background — floating musical notes + soft particles ──────
+// ── Ambient background — atmosphere-driven floating notes ─────────────
 
 @Composable
-private fun AmbientBackground(modifier: Modifier = Modifier) {
+private fun AmbientBackground(
+    atmosphere: VaibAtmosphere,
+    modifier: Modifier = Modifier,
+) {
     val transition = rememberInfiniteTransition(label = "ambient")
     val phase by transition.animateFloat(
         initialValue  = 0f,
@@ -447,27 +468,30 @@ private fun AmbientBackground(modifier: Modifier = Modifier) {
         ),
         label = "ambientPhase",
     )
-    val twoPi = (2.0 * PI).toFloat()
+    val twoPi  = (2.0 * PI).toFloat()
+    val glyphs = atmosphere.particleGlyphs
 
     BoxWithConstraints(modifier = modifier) {
         val w = maxWidth
         val h = maxHeight
-        AMBIENT_NOTES.forEach { note ->
+        AMBIENT_NOTE_DATA.forEach { note ->
+            val glyph = glyphs.getOrElse(note.glyphIndex % glyphs.size) { "♪" }
             val swayX = sin(phase * note.swayFreq * twoPi + note.phase) * note.swayAmp
             val xDp   = w * (note.baseX + swayX).coerceIn(0.02f, 0.96f)
             val yDp   = h * ((note.baseY + phase * note.speed) % 1.05f)
+            val color = (if (note.isPrimary) atmosphere.primaryColor else atmosphere.secondaryColor)
+                .copy(alpha = note.alpha)
             Text(
-                text     = note.char,
-                color    = (if (note.isCyan) VaibColors.CyanPulse else VaibColors.VioletGlow)
-                    .copy(alpha = note.alpha),
-                fontSize = 14.sp,
+                text     = glyph,
+                color    = color,
+                fontSize = 16.sp,
                 modifier = Modifier.absoluteOffset(x = xDp, y = yDp),
             )
         }
     }
 }
 
-// ── Player panel (Now Playing card + bar viz + progress) ─────────────
+// ── Player panel ──────────────────────────────────────────────────────
 
 @Composable
 private fun PlayerPanel(
@@ -479,6 +503,7 @@ private fun PlayerPanel(
     hasTrack: Boolean,
     currentEqPreset: EqPreset,
     currentMood: String,
+    atmosphere: VaibAtmosphere,
 ) {
     val statusText = when {
         isBuffering           -> "BUFFERING…"
@@ -488,8 +513,8 @@ private fun PlayerPanel(
         else                  -> "NO TRACK"
     }
     val statusColor = when {
-        isPlaying   -> VaibColors.CyanPulse
-        isBuffering -> VaibColors.CyanPulse.copy(alpha = 0.55f)
+        isPlaying   -> atmosphere.primaryColor
+        isBuffering -> atmosphere.primaryColor.copy(alpha = 0.55f)
         else        -> VaibColors.TextSoft.copy(alpha = 0.45f)
     }
     val sourceLabel = when (trackUri?.scheme) {
@@ -498,7 +523,7 @@ private fun PlayerPanel(
         else            -> "Local file"
     }
     val borderColor = if (isPlaying)
-        VaibColors.CyanPulse.copy(alpha = 0.22f)
+        atmosphere.primaryColor.copy(alpha = 0.22f)
     else
         Color.White.copy(alpha = 0.05f)
 
@@ -510,9 +535,8 @@ private fun PlayerPanel(
             .background(VaibColors.DeepBackground)
             .padding(horizontal = 18.dp, vertical = 18.dp),
     ) {
-        // Track info row
         Row(verticalAlignment = Alignment.CenterVertically) {
-            MiniOrb(isPlaying = isPlaying, hasTrack = hasTrack)
+            MiniOrb(isPlaying = isPlaying, hasTrack = hasTrack, atmosphere = atmosphere)
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 // Status dot + label
@@ -543,7 +567,7 @@ private fun PlayerPanel(
                     lineHeight = 21.sp,
                     overflow   = TextOverflow.Ellipsis,
                 )
-                // Source · EQ · Mood inline
+                // Inline metadata: source · EQ · mood
                 val hasMetadata = sourceLabel != null || currentEqPreset != EqPreset.FLAT || currentMood.isNotEmpty()
                 if (hasMetadata) {
                     Spacer(modifier = Modifier.height(4.dp))
@@ -556,8 +580,8 @@ private fun PlayerPanel(
                         if (currentEqPreset != EqPreset.FLAT) {
                             if (needDot) Text("  ·  ", color = VaibColors.TextSoft.copy(alpha = 0.25f), fontSize = 10.sp)
                             Text(
-                                text     = "EQ: ${currentEqPreset.label}",
-                                color    = VaibColors.VioletGlow.copy(alpha = 0.65f),
+                                text  = "EQ: ${currentEqPreset.label}",
+                                color = atmosphere.secondaryColor.copy(alpha = 0.65f),
                                 fontSize = 10.sp,
                             )
                             needDot = true
@@ -565,8 +589,8 @@ private fun PlayerPanel(
                         if (currentMood.isNotEmpty()) {
                             if (needDot) Text("  ·  ", color = VaibColors.TextSoft.copy(alpha = 0.25f), fontSize = 10.sp)
                             Text(
-                                text     = currentMood,
-                                color    = VaibColors.CyanPulse.copy(alpha = 0.52f),
+                                text  = currentMood,
+                                color = atmosphere.primaryColor.copy(alpha = 0.52f),
                                 fontSize = 10.sp,
                             )
                         }
@@ -578,8 +602,9 @@ private fun PlayerPanel(
         // Bar visualizer preview
         Spacer(modifier = Modifier.height(14.dp))
         BarVisualizerPreview(
-            isPlaying = isPlaying,
-            modifier  = Modifier.fillMaxWidth().height(42.dp),
+            isPlaying  = isPlaying,
+            atmosphere = atmosphere,
+            modifier   = Modifier.fillMaxWidth().height(42.dp),
         )
 
         // Progress bar
@@ -588,14 +613,14 @@ private fun PlayerPanel(
             if (isBuffering) {
                 LinearProgressIndicator(
                     modifier   = Modifier.fillMaxWidth().height(2.dp),
-                    color      = VaibColors.CyanPulse.copy(alpha = 0.55f),
+                    color      = atmosphere.primaryColor.copy(alpha = 0.55f),
                     trackColor = Color.White.copy(alpha = 0.07f),
                 )
             } else {
                 LinearProgressIndicator(
                     progress   = { playbackFraction },
                     modifier   = Modifier.fillMaxWidth().height(2.dp),
-                    color      = VaibColors.CyanPulse,
+                    color      = atmosphere.primaryColor,
                     trackColor = Color.White.copy(alpha = 0.07f),
                     strokeCap  = StrokeCap.Round,
                 )
@@ -604,12 +629,16 @@ private fun PlayerPanel(
     }
 }
 
-// ── Bar visualizer preview — procedural time-based animation ─────────
+// ── Bar visualizer preview ────────────────────────────────────────────
 
 private const val BAR_COUNT = 20
 
 @Composable
-private fun BarVisualizerPreview(isPlaying: Boolean, modifier: Modifier = Modifier) {
+private fun BarVisualizerPreview(
+    isPlaying: Boolean,
+    atmosphere: VaibAtmosphere,
+    modifier: Modifier = Modifier,
+) {
     val transition = rememberInfiniteTransition(label = "barViz")
     val phase by transition.animateFloat(
         initialValue  = 0f,
@@ -632,7 +661,7 @@ private fun BarVisualizerPreview(isPlaying: Boolean, modifier: Modifier = Modifi
             val raw    = abs(sin((phase + offset) * speed * twoPi))
             val h      = (maxH * multiplier * (0.10f + raw * 0.90f)).coerceAtLeast(2f)
             val t      = i.toFloat() / (BAR_COUNT - 1).coerceAtLeast(1)
-            val color  = lerp(VaibColors.CyanPulse, VaibColors.VioletGlow, t)
+            val color  = lerp(atmosphere.primaryColor, atmosphere.secondaryColor, t)
                 .copy(alpha = 0.42f + raw * 0.28f)
             drawRect(
                 color    = color,
@@ -646,7 +675,11 @@ private fun BarVisualizerPreview(isPlaying: Boolean, modifier: Modifier = Modifi
 // ── Mini animated orb ─────────────────────────────────────────────────
 
 @Composable
-private fun MiniOrb(isPlaying: Boolean, hasTrack: Boolean) {
+private fun MiniOrb(
+    isPlaying: Boolean,
+    hasTrack: Boolean,
+    atmosphere: VaibAtmosphere,
+) {
     val infiniteTransition = rememberInfiniteTransition(label = "orb")
     val breathe by infiniteTransition.animateFloat(
         initialValue  = 0.82f,
@@ -665,12 +698,12 @@ private fun MiniOrb(isPlaying: Boolean, hasTrack: Boolean) {
     }
     Canvas(modifier = Modifier.size(52.dp)) {
         val r = size.minDimension / 2f
-        drawCircle(color = VaibColors.CyanPulse.copy(alpha = coreAlpha * 0.18f), radius = r * orbScale * 1.45f)
-        drawCircle(color = VaibColors.CyanPulse.copy(alpha = coreAlpha),          radius = r * orbScale)
+        drawCircle(color = atmosphere.primaryColor.copy(alpha = coreAlpha * 0.18f), radius = r * orbScale * 1.45f)
+        drawCircle(color = atmosphere.primaryColor.copy(alpha = coreAlpha),          radius = r * orbScale)
     }
 }
 
-// ── Transport controls ────────────────────────────────────────────────
+// ── Transport controls — Canvas-drawn icons (no emoji) ────────────────
 
 @Composable
 private fun TransportControls(
@@ -683,45 +716,116 @@ private fun TransportControls(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment     = Alignment.CenterVertically,
     ) {
-        TransportCircle(symbol = "⏮", size = 56, enabled = false)
+        // Previous (disabled)
+        TransportSideButton { SkipPrevIcon(Modifier.size(24.dp)) }
+
         Spacer(modifier = Modifier.width(28.dp))
+
+        // Play / Pause — main button
+        val bgAlpha   = if (hasTrack) 0.92f else 0.06f
+        val iconColor = if (hasTrack) Color.Black else Color.White.copy(alpha = 0.15f)
         Box(
             modifier = Modifier
                 .size(72.dp)
                 .clip(CircleShape)
-                .background(if (hasTrack) Color.White.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.06f))
+                .background(Color.White.copy(alpha = bgAlpha))
                 .clickable(enabled = hasTrack, onClick = onPlayPause),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text     = if (isPlaying) "⏸" else "▶",
-                fontSize = if (isPlaying) 24.sp else 26.sp,
-                color    = if (hasTrack) Color.Black else VaibColors.TextSoft.copy(alpha = 0.22f),
-            )
+            if (isPlaying) {
+                PauseIcon(modifier = Modifier.size(28.dp), color = iconColor)
+            } else {
+                PlayIcon(modifier = Modifier.size(28.dp), color = iconColor)
+            }
         }
+
         Spacer(modifier = Modifier.width(28.dp))
-        TransportCircle(symbol = "⏭", size = 56, enabled = false)
+
+        // Next (disabled)
+        TransportSideButton { SkipNextIcon(Modifier.size(24.dp)) }
     }
 }
 
 @Composable
-private fun TransportCircle(symbol: String, size: Int, enabled: Boolean) {
+private fun TransportSideButton(icon: @Composable () -> Unit) {
     Box(
         modifier = Modifier
-            .size(size.dp)
+            .size(56.dp)
             .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.04f)),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text     = symbol,
-            fontSize = (size * 0.36f).sp,
-            color    = VaibColors.TextSoft.copy(alpha = if (enabled) 0.75f else 0.20f),
-        )
+        icon()
     }
 }
 
-// ── Shared button styles (also used by DiscoverScreen) ───────────────
+// Canvas-drawn transport icons — no emoji, pure geometry
+
+@Composable
+private fun PlayIcon(modifier: Modifier = Modifier, color: Color = Color.Black) {
+    Canvas(modifier = modifier) {
+        val path = Path().apply {
+            moveTo(size.width * 0.26f, size.height * 0.14f)
+            lineTo(size.width * 0.83f, size.height * 0.50f)
+            lineTo(size.width * 0.26f, size.height * 0.86f)
+            close()
+        }
+        drawPath(path, color)
+    }
+}
+
+@Composable
+private fun PauseIcon(modifier: Modifier = Modifier, color: Color = Color.Black) {
+    Canvas(modifier = modifier) {
+        val barW   = size.width  * 0.22f
+        val barH   = size.height * 0.70f
+        val gap    = size.width  * 0.16f
+        val startX = (size.width - barW * 2f - gap) / 2f
+        val startY = (size.height - barH) / 2f
+        drawRect(color, topLeft = Offset(startX, startY),         size = Size(barW, barH))
+        drawRect(color, topLeft = Offset(startX + barW + gap, startY), size = Size(barW, barH))
+    }
+}
+
+@Composable
+private fun SkipPrevIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val c = Color.White.copy(alpha = 0.20f)
+        // Vertical bar
+        val barW = size.width * 0.10f
+        drawRect(c, topLeft = Offset(size.width * 0.10f, size.height * 0.18f),
+            size = Size(barW, size.height * 0.64f))
+        // Triangle pointing left
+        val path = Path().apply {
+            moveTo(size.width * 0.88f, size.height * 0.18f)
+            lineTo(size.width * 0.28f, size.height * 0.50f)
+            lineTo(size.width * 0.88f, size.height * 0.82f)
+            close()
+        }
+        drawPath(path, c)
+    }
+}
+
+@Composable
+private fun SkipNextIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val c = Color.White.copy(alpha = 0.20f)
+        // Triangle pointing right
+        val path = Path().apply {
+            moveTo(size.width * 0.12f, size.height * 0.18f)
+            lineTo(size.width * 0.72f, size.height * 0.50f)
+            lineTo(size.width * 0.12f, size.height * 0.82f)
+            close()
+        }
+        drawPath(path, c)
+        // Vertical bar
+        val barW = size.width * 0.10f
+        drawRect(c, topLeft = Offset(size.width * 0.80f, size.height * 0.18f),
+            size = Size(barW, size.height * 0.64f))
+    }
+}
+
+// ── Shared button styles ──────────────────────────────────────────────
 
 @Composable
 internal fun VaibOutlinedButton(
