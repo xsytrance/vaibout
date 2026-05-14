@@ -135,7 +135,18 @@ fun HomeScreen(
                 maxLines = 2,
                 lineHeight = 24.sp,
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = when (trackUri?.scheme) {
+                    "https", "http" -> "Internet Archive stream"
+                    else            -> "Local file"
+                },
+                color = VaibColors.TextSoft.copy(alpha = 0.45f),
+                fontSize = 10.sp,
+                letterSpacing = 0.5.sp,
+                fontWeight = FontWeight.Normal,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
             LinearProgressIndicator(
                 progress = { playbackFraction },
                 modifier = Modifier

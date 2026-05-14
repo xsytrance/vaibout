@@ -58,6 +58,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _loadingItemId = MutableStateFlow<String?>(null)
     val loadingItemId: StateFlow<String?> = _loadingItemId.asStateFlow()
 
+    private val _streamError = MutableStateFlow<String?>(null)
+    val streamError: StateFlow<String?> = _streamError.asStateFlow()
+
     init {
         restorePersistedTrack(application)
         startPositionTicker()
@@ -121,17 +124,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Discover / online track ───────────────────────────────────────
 
-    fun fetchDiscoverItems() {
+    fun fetchDiscoverItems(query: String = "") {
         viewModelScope.launch {
             _discoverState.value = DiscoverUiState.Loading
+            _streamError.value   = null
             try {
-                val items = InternetArchiveApi.fetchItems()
+                val items = InternetArchiveApi.fetchItems(query)
                 _discoverState.value = if (items.isEmpty()) {
-                    DiscoverUiState.Error("No results found. Check your connection.")
+                    DiscoverUiState.Error(
+                        if (query.isBlank()) "No results found. Check your connection."
+                        else "No results for \"$query\"."
+                    )
                 } else {
                     DiscoverUiState.Success(items)
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _discoverState.value = DiscoverUiState.Error(
                     "Couldn't load music. Check your connection."
                 )
@@ -142,6 +149,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun loadOnlineTrack(item: ArchiveItem) {
         viewModelScope.launch {
             _loadingItemId.value = item.id
+            _streamError.value   = null
             try {
                 val url = InternetArchiveApi.resolveStreamUrl(item.id)
                 if (url != null) {
@@ -152,12 +160,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     trackPrefs.save(uri, item.title)
                     audioPlayer.prepareTrack(uri)
                     navigateTo(Screen.HOME)
+                } else {
+                    _streamError.value = "Couldn't load this stream. Try another track."
                 }
+            } catch (_: Exception) {
+                _streamError.value = "Couldn't load this stream. Try another track."
             } finally {
                 _loadingItemId.value = null
             }
         }
     }
+
+    fun clearStreamError() { _streamError.value = null }
 
     // ── vAIb save / recall ────────────────────────────────────────────
 

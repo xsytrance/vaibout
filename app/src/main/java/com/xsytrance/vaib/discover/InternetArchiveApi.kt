@@ -6,6 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 
 /**
  * Thin, no-extra-dep wrapper around the Internet Archive public API.
@@ -20,18 +21,28 @@ object InternetArchiveApi {
 
     private const val BASE = "https://archive.org"
 
-    // Netlabels collection: freely licensed music released under Creative Commons
-    private const val SEARCH_URL = "$BASE/advancedsearch.php" +
-        "?q=collection%3Anetlabels%20AND%20mediatype%3Aaudio" +
-        "&fl[]=identifier&fl[]=title&fl[]=creator" +
-        "&rows=25&sort[]=downloads%20desc&output=json"
-
     // Preferred audio formats in resolution priority order
     private val AUDIO_EXTS = listOf(".mp3", ".ogg", ".opus", ".flac")
 
-    suspend fun fetchItems(): List<ArchiveItem> = withContext(Dispatchers.IO) {
+    /**
+     * Fetches audio items from Internet Archive.
+     *
+     * Empty [query] → top netlabels CC music (curated default).
+     * Non-empty [query] → keyword search across all IA audio.
+     */
+    suspend fun fetchItems(query: String = ""): List<ArchiveItem> = withContext(Dispatchers.IO) {
         try {
-            parseSearch(get(SEARCH_URL))
+            val q = if (query.isBlank()) {
+                "collection:netlabels AND mediatype:audio"
+            } else {
+                "${query.trim()} AND mediatype:audio"
+            }
+            val encoded = URLEncoder.encode(q, "UTF-8")
+            val url = "$BASE/advancedsearch.php" +
+                "?q=$encoded" +
+                "&fl[]=identifier&fl[]=title&fl[]=creator" +
+                "&rows=25&sort[]=downloads%20desc&output=json"
+            parseSearch(get(url))
         } catch (_: Exception) {
             emptyList()
         }
