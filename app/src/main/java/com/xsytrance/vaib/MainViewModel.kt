@@ -54,6 +54,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentEqPreset = MutableStateFlow(EqPreset.FLAT)
     val currentEqPreset: StateFlow<EqPreset> = _currentEqPreset.asStateFlow()
 
+    private val _currentMood = MutableStateFlow("")
+    val currentMood: StateFlow<String> = _currentMood.asStateFlow()
+
     val savedVaibs: StateFlow<List<VaibEntity>> = vaibDao.observeAll()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
@@ -139,6 +142,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _trackUri.value  = uri
         _trackName.value = cleanName
         _playbackFraction.value = 0f
+        _currentMood.value = ""
         trackPrefs.save(uri, cleanName)
         audioPlayer.loadTrack(uri)
     }
@@ -178,6 +182,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _trackUri.value  = uri
                     _trackName.value = item.title
                     _playbackFraction.value = 0f
+                    _currentMood.value = ""
                     trackPrefs.save(uri, item.title)
                     audioPlayer.prepareTrack(uri)
                     navigateTo(Screen.HOME)
@@ -229,6 +234,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _playbackFraction.value = 0f
         trackPrefs.save(uri, vaib.trackName)
         audioPlayer.prepareTrack(uri)
+        _currentMood.value = vaib.mood
         val preset = runCatching { EqPreset.valueOf(vaib.eqPreset) }.getOrDefault(EqPreset.FLAT)
         applyEqPreset(preset)
     }
