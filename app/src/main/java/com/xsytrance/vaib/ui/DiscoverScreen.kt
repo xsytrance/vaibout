@@ -279,6 +279,7 @@ fun DiscoverScreen(
                             isLoading  = loadingItemId == item.id,
                             anyLoading = loadingItemId != null,
                             world      = world,
+                            energy     = energy,
                             onClick    = { viewModel.loadOnlineTrack(item) },
                         )
                         Spacer(Modifier.height(10.dp))
@@ -534,6 +535,7 @@ private fun OrbitSongCard(
     isLoading: Boolean,
     anyLoading: Boolean,
     world: OrbitWorld,
+    energy: Float,
     onClick: () -> Unit,
 ) {
     val paint    = remember(item.id) { TrackPaint.fromArchiveItem(item) }
@@ -818,7 +820,7 @@ private fun QueueReadyChip() {
 // ── Song card mini waveform ───────────────────────────────────────────
 
 @Composable
-private fun SongCardMiniWaveform(color: Color, energy: Float) {
+private fun SongCardMiniWaveform(color: Color, energy: Float = 0f) {
     val transition = rememberInfiniteTransition(label = "songCardWave")
     val phase by transition.animateFloat(
         0f, 1f,

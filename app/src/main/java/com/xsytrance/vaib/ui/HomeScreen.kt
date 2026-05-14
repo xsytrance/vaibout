@@ -72,6 +72,8 @@ import com.xsytrance.vaib.audio.EqPreset
 import com.xsytrance.vaib.core.design.OrbitAtmosphereLayer
 import com.xsytrance.vaib.core.design.VaibAtmosphere
 import com.xsytrance.vaib.core.design.VaibColors
+import com.xsytrance.vaib.core.design.ambientBreathAnimation
+import com.xsytrance.vaib.core.design.energyGlow
 import com.xsytrance.vaib.data.entities.VaibEntity
 import kotlin.math.PI
 import kotlin.math.abs
@@ -217,6 +219,8 @@ fun HomeScreen(
                     currentEqPreset  = currentEqPreset,
                     currentMood      = currentMood,
                     atmosphere       = atmosphere,
+                    energy           = energy,
+                    beatPulse        = beatPulse,
                     onPlayPause      = viewModel::togglePlayPause,
                 )
                 Spacer(Modifier.height(16.dp))
@@ -227,7 +231,8 @@ fun HomeScreen(
                 CockpitActions(
                     hasTrack         = hasTrack,
                     atmosphere       = atmosphere,
-                    beatPulse        = viewModel.visualSignal.beatPulse,
+                    beatPulse        = beatPulse,
+                    breathValue      = breathValue,
                     onVaibOut        = onEnterDreamscape,
                     onPickTrack      = onPickTrack,
                     onDiscover       = onDiscoverMusic,
@@ -1143,6 +1148,8 @@ private fun DreamdeckHero(
     currentEqPreset: EqPreset,
     currentMood: String,
     atmosphere: VaibAtmosphere,
+    energy: Float,
+    beatPulse: Float,
     onPlayPause: () -> Unit,
 ) {
     val subtitle = when {
@@ -1343,18 +1350,18 @@ private fun CockpitVisualizer(
 private fun CockpitActions(
     hasTrack: Boolean,
     atmosphere: VaibAtmosphere,
-    beatPulse: kotlinx.coroutines.flow.StateFlow<Float>,
+    beatPulse: Float,
+    breathValue: Float,
     onVaibOut: () -> Unit,
     onPickTrack: () -> Unit,
     onDiscover: () -> Unit,
 ) {
-    val beat by beatPulse.collectAsState()
-    val pulseAlpha = (beat * 0.25f).coerceIn(0f, 0.25f)
+    val pulseAlpha = (beatPulse * 0.25f).coerceIn(0f, 0.25f)
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // vAIb out! — dark glassy cockpit button with beat pulse
         val baseBorderAlpha = if (hasTrack) 0.55f else 0.12f
-        val breathPulse = (0.5f + 0.5f * sin(breathValue * 2.0 * PI)).toFloat() * 0.15f
+        val breathPulse = (0.5f + 0.5f * kotlin.math.sin((breathValue * 2.0f * PI.toFloat()).toDouble())).toFloat() * 0.15f
         Box(
             modifier = Modifier
                 .fillMaxWidth()
