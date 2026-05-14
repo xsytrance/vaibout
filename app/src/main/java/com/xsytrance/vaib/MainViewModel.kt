@@ -84,6 +84,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         _trackUri.value  = savedUri
         _trackName.value = savedName
+        // Prepare local files so the Play button works immediately on restore.
+        // Remote streams are intentionally not prepared here to avoid background network traffic.
+        if (!isRemote) {
+            audioPlayer.prepareTrack(savedUri)
+        }
     }
 
     // ── Position ticker ───────────────────────────────────────────────
