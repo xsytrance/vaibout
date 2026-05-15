@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.xsytrance.vaib.data.entities.QueueItem
 import com.xsytrance.vaib.data.entities.StationEntity
 import com.xsytrance.vaib.data.entities.StationTrackCrossRef
 import com.xsytrance.vaib.data.entities.TrackEntity
@@ -20,6 +21,7 @@ import com.xsytrance.vaib.data.entities.VaibEntity
  *   3 — Expanded TrackEntity fields
  *   4 — Hardened schema
  *   5 — Added StationEntity, StationTrackCrossRef, expanded TrackEntity
+ *   6 — Added QueueItem for playback queue
  */
 @Database(
     entities = [
@@ -27,12 +29,13 @@ import com.xsytrance.vaib.data.entities.VaibEntity
         TrackEntity::class,
         StationEntity::class,
         StationTrackCrossRef::class,
+        QueueItem::class,
     ],
-    version = 5,
-    exportSchema = true,  // Enable schema exports for migration safety
+    version = 6,
+    exportSchema = true,
     autoMigrations = [
-        // v4 → v5: Add stations and enrich tracks
-        AutoMigration(from = 4, to = 5)
+        AutoMigration(from = 4, to = 5),
+        AutoMigration(from = 5, to = 6),
     ],
 )
 abstract class VaibDatabase : RoomDatabase() {
@@ -40,6 +43,7 @@ abstract class VaibDatabase : RoomDatabase() {
     abstract fun vaibDao(): VaibDao
     abstract fun trackDao(): TrackDao
     abstract fun stationDao(): StationDao
+    abstract fun queueDao(): QueueDao
 
     companion object {
         @Volatile private var instance: VaibDatabase? = null
@@ -54,20 +58,11 @@ abstract class VaibDatabase : RoomDatabase() {
                     .addCallback(object : RoomDatabase.Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)
-                            // Pre-populate default stations on first run
-                            populateDefaults(context)
                         }
                     })
-                    .fallbackToDestructiveMigration()  // Dev phase — replace with migrations before release
+                    .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }
             }
-
-        /**
-         * Seed the app with default preset stations on first launch.
-         */
-        private fun populateDefaults(context: Context) {
-            // Done async via coroutine — triggered from Application or ViewModel
-        }
     }
 }

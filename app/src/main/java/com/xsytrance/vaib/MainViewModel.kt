@@ -2,6 +2,7 @@ package com.xsytrance.vaib
 
 import android.app.Application
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.xsytrance.vaib.audio.AudioPlayer
@@ -10,32 +11,42 @@ import com.xsytrance.vaib.audio.EqController
 import com.xsytrance.vaib.audio.EqPreset
 import com.xsytrance.vaib.data.TrackPrefs
 import com.xsytrance.vaib.data.VaibDatabase
+import com.xsytrance.vaib.data.entities.QueueItem
 import com.xsytrance.vaib.data.entities.VaibEntity
 import com.xsytrance.vaib.discover.ArchiveItem
 import com.xsytrance.vaib.discover.DiscoverUiState
 import com.xsytrance.vaib.discover.InternetArchiveApi
+import com.xsytrance.vaib.repository.MusicRepository
+import com.xsytrance.vaib.service.AudioFocusManager
+import com.xsytrance.vaib.service.PlayerService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class Screen { HOME, SOLO_DREAMSCAPE, DISCOVER }
+enum class Screen { HOME, SOLO_DREAMSCAPE, DISCOVER, STATIONS, NOW_PLAYING }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val repository   = MusicRepository(application)
     private val audioPlayer  = AudioPlayer(application)
     private val trackPrefs   = TrackPrefs(application)
     private val analyzer     = AudioVisualizerAnalyzer()
     private val eqController = EqController()
     private val vaibDao      = VaibDatabase.get(application).vaibDao()
+    private val focusManager = AudioFocusManager(application)
+
+    init {
+        focusManager.bindPlayer(audioPlayer)
+    }
+
+    // ── Reactive state ───────────────────────────────────────
 
     val audioEnergy    = analyzer.energy
     val audioBeatPulse = analyzer.beatPulse
-
     val isPlaying:   StateFlow<Boolean> = audioPlayer.isPlaying
     val isBuffering: StateFlow<Boolean> = audioPlayer.isBuffering
 
@@ -63,10 +74,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentMood = MutableStateFlow("")
     val currentMood: StateFlow<String> = _currentMood.asStateFlow()
 
-    val savedVaibs: StateFlow<List<VaibEntity>> = vaibDao.observeAll()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    // ── Queue ─────────────────────────────────────────────────
 
-    // ── Discover ──────────────────────────────────────────────────────
+    val queue = repository.allTracks  // Initially just the full library
+    private var queueUrns: List<String> = emptyList()
+    private var currentQueueIndex = -1
+
+    // ── Discover ──────────────────────────────────────────────
 
     private val _discoverState = MutableStateFlow<DiscoverUiState>(DiscoverUiState.Loading)
     val discoverState: StateFlow<DiscoverUiState> = _discoverState.asStateFlow()
@@ -77,19 +91,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _streamError = MutableStateFlow<String?>(null)
     val streamError: StateFlow<String?> = _streamError.asStateFlow()
 
+    // ── Saved vAIbs ───────────────────────────────────────────
+
+    val savedVaibs = vaibDao.observeAll()
+        .stateIn(viewModelScope, com.xsytrance.vaib.data.SharingStarted.Eagerly, emptyList())
+
     init {
         restorePersistedTrack(application)
         startPositionTicker()
         observePlaybackEnd()
     }
 
-    // ── Track restore ─────────────────────────────────────────────────
+    // ── Track restore ─────────────────────────────────────────
 
     private fun restorePersistedTrack(application: Application) {
         val savedUri  = trackPrefs.loadUri()  ?: return
         val savedName = trackPrefs.loadName() ?: return
 
-        // Remote https:// URIs don't use SAF persistable permissions — skip the check
         val isRemote = savedUri.scheme == "https" || savedUri.scheme == "http"
         if (!isRemote) {
             val stillGranted = application.contentResolver.persistedUriPermissions
@@ -101,19 +119,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         _trackUri.value  = savedUri
         _trackName.value = savedName
-        // Prepare local files so the Play button works immediately on restore.
-        // Remote streams are intentionally not prepared here to avoid background network traffic.
         if (!isRemote) {
             audioPlayer.prepareTrack(savedUri)
         }
     }
 
-    // ── Position ticker ───────────────────────────────────────────────
+    // ── Position ticker ───────────────────────────────────────
 
     private fun observePlaybackEnd() {
         viewModelScope.launch {
             audioPlayer.isEnded.collect { ended ->
-                if (ended) _playbackFraction.value = 0f
+                if (ended) {
+                    _playbackFraction.value = 0f
+                    // Auto-advance to next in queue
+                    if (currentQueueIndex < queueUrns.size - 1) {
+                        loadQueueItem(currentQueueIndex + 1)
+                    }
+                }
             }
         }
     }
@@ -138,7 +160,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // ── Local track ───────────────────────────────────────────────────
+    // ── Local track ───────────────────────────────────────────
 
     fun loadTrack(uri: Uri, displayName: String?) {
         val cleanName = displayName
@@ -157,9 +179,62 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _currentMood.value = ""
         trackPrefs.save(uri, cleanName)
         audioPlayer.loadTrack(uri)
+
+        // Record play stat
+        viewModelScope.launch {
+            val trackId = repository.findOrCreateTrack(uri.toString(), cleanName)
+            repository.recordPlay(trackId)
+        }
     }
 
-    // ── Discover / online track ───────────────────────────────────────
+    // ── Queue management ─────────────────────────────────────
+
+    /** Build a queue from a list of URIs and start playing from startIndex. */
+    fun loadQueue(uris: List<Uri>, startFrom: Int = 0) {
+        queueUrns = uris.map { it.toString() }
+        currentQueueIndex = startFrom
+        audioPlayer.loadQueue(uris, startFrom)
+    }
+
+    /** Advance to next item in queue with crossfade. */
+    private fun loadQueueItem(index: Int) {
+        if (index in queueUrns.indices) {
+            currentQueueIndex = index
+            _trackUri.value = Uri.parse(queueUrns[index])
+            // TODO: resolve track name from DB or metadata
+            audioPlayer.togglePlayPause()  // Will handle STATE_IDLE → play
+        }
+    }
+
+    fun skipNext() {
+        if (currentQueueIndex < queueUrns.size - 1) {
+            loadQueueItem(currentQueueIndex + 1)
+        }
+    }
+
+    fun skipPrevious() {
+        if (currentQueueIndex > 0) {
+            loadQueueItem(currentQueueIndex - 1)
+        }
+    }
+
+    /** Update queue order after drag-and-drop reorder. */
+    fun reorderQueue(fromIndex: Int, toIndex: Int) {
+        if (fromIndex == toIndex) return
+        val mutable = queueUrns.toMutableList()
+        val item = mutable.removeAt(fromIndex)
+        mutable.add(toIndex, item)
+        queueUrns = mutable
+        // Adjust current index if it was affected
+        currentQueueIndex = when {
+            currentQueueIndex == fromIndex -> toIndex
+            currentQueueIndex in minOf(fromIndex, toIndex) + 1 until maxOf(fromIndex, toIndex) ->
+                if (fromIndex < toIndex) currentQueueIndex - 1 else currentQueueIndex + 1
+            else -> currentQueueIndex
+        }
+    }
+
+    // ── Discover / online track ───────────────────────────────
 
     fun fetchDiscoverItems(query: String = "") {
         viewModelScope.launch {
@@ -197,6 +272,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _currentMood.value = ""
                     trackPrefs.save(uri, item.title)
                     audioPlayer.prepareTrack(uri)
+                    // Record play stat
+                    val trackId = repository.findOrCreateTrack(uri.toString(), item.title)
+                    repository.recordPlay(trackId)
+                    // Start foreground service
+                    PlayerService.start(getApplication(), item.title)
                     navigateTo(Screen.HOME)
                 } else {
                     _streamError.value = "Couldn't load this stream. Try another track."
@@ -211,7 +291,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearStreamError() { _streamError.value = null }
 
-    // ── vAIb save / recall ────────────────────────────────────────────
+    // ── Audio focus ───────────────────────────────────────────
+
+    fun requestAudioFocus(): Boolean = focusManager.requestFocus()
+    fun abandonAudioFocus()        = focusManager.abandonFocus()
+
+    // ── vAIb save / recall ────────────────────────────────────
 
     fun applyEqPreset(preset: EqPreset) {
         _currentEqPreset.value = preset
@@ -230,7 +315,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     trackName       = _trackName.value ?: "Unknown Track",
                     mood            = mood.trim(),
                     visualizerStyle = "PULSE",
-                    themeId         = "OLED_CYAN",
+                    themeId         = "NEON_CYAN",
                     createdAt       = System.currentTimeMillis(),
                     sourceType      = sourceType,
                     eqPreset        = eqPreset.name,
@@ -249,21 +334,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _currentMood.value = vaib.mood
         val preset = runCatching { EqPreset.valueOf(vaib.eqPreset) }.getOrDefault(EqPreset.FLAT)
         applyEqPreset(preset)
+        PlayerService.start(getApplication(), vaib.trackName)
     }
 
     fun deleteVaib(vaib: VaibEntity) {
         viewModelScope.launch { vaibDao.delete(vaib) }
     }
 
-    // ── Playback / navigation ─────────────────────────────────────────
+    // ── Playback / navigation ─────────────────────────────────
 
-    fun togglePlayPause() = audioPlayer.togglePlayPause(fallbackUri = _trackUri.value)
+    fun togglePlayPause() {
+        if (!audioPlayer.player.isPlaying && !focusManager.requestFocus()) return
+        audioPlayer.togglePlayPause(fallbackUri = _trackUri.value)
+        if (audioPlayer.player.isPlaying) {
+            PlayerService.start(getApplication(), _trackName.value ?: "vAIb out!")
+        } else {
+            PlayerService.update(getApplication(), _trackName.value ?: "vAIb out!", false)
+        }
+    }
 
     fun startAnalyzer(): Boolean {
         val sessionId = audioPlayer.audioSessionId
-        android.util.Log.d("VaibDreamscape", "startAnalyzer() audioSessionId=$sessionId")
+        Log.d("VaibDreamscape", "startAnalyzer() audioSessionId=$sessionId")
         val ok = analyzer.start(sessionId)
-        android.util.Log.d("VaibDreamscape", "startAnalyzer() result=$ok")
+        Log.d("VaibDreamscape", "startAnalyzer() result=$ok")
         return ok
     }
 
@@ -278,5 +372,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         analyzer.stop()
         eqController.release()
         audioPlayer.release()
+        focusManager.abandonFocus()
+        PlayerService.stop(getApplication())
     }
 }
