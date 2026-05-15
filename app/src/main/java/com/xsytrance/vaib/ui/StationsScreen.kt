@@ -1,7 +1,5 @@
 package com.xsytrance.vaib.ui
 
-import android.net.Uri
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,7 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,11 +31,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.xsytrance.vaib.MainViewModel
-import com.xsytrance.vaib.core.design.MotionTokens
 import com.xsytrance.vaib.core.design.StationTheme
 import com.xsytrance.vaib.core.design.VaibAtmosphere
 import com.xsytrance.vaib.core.design.VaibColors
-import kotlinx.coroutines.delay
 import kotlin.math.PI
 
 @Composable
@@ -126,7 +122,7 @@ fun StationsScreen(
                             station = station,
                             onPlay = { /* TODO: create queue from station tracks */ },
                             onEdit = { /* TODO: edit station */ },
-                            onDelete = { stationToDelete = StationUiState(station) },
+                            onDelete = { stationToDelete = station },
                         )
                     }
                 }

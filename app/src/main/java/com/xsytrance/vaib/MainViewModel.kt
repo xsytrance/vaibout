@@ -12,6 +12,8 @@ import com.xsytrance.vaib.audio.EqPreset
 import com.xsytrance.vaib.data.TrackPrefs
 import com.xsytrance.vaib.data.VaibDatabase
 import com.xsytrance.vaib.data.entities.QueueItem
+import com.xsytrance.vaib.data.entities.StationEntity
+import com.xsytrance.vaib.data.entities.TrackEntity
 import com.xsytrance.vaib.data.entities.VaibEntity
 import com.xsytrance.vaib.discover.ArchiveItem
 import com.xsytrance.vaib.discover.DiscoverUiState
@@ -19,9 +21,12 @@ import com.xsytrance.vaib.discover.InternetArchiveApi
 import com.xsytrance.vaib.repository.MusicRepository
 import com.xsytrance.vaib.service.AudioFocusManager
 import com.xsytrance.vaib.service.PlayerService
+import com.xsytrance.vaib.ui.StationUiState
 import com.xsytrance.vaib.visualizer.VisualizerStyle
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -95,7 +100,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ── Saved vAIbs ───────────────────────────────────────────
 
     val savedVaibs = vaibDao.observeAll()
-        .stateIn(viewModelScope, com.xsytrance.vaib.data.SharingStarted.Eagerly, emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
         restorePersistedTrack(application)
@@ -340,6 +345,68 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteVaib(vaib: VaibEntity) {
         viewModelScope.launch { vaibDao.delete(vaib) }
+    }
+
+    // ── Stations ────────────────────────────────────────────────────
+
+    val allStations: StateFlow<List<StationUiState>> = repository.allStations
+        .let { flow ->
+            kotlinx.coroutines.flow.flow {
+                flow.collect { entities ->
+                    emit(entities.map { it.toUiState() })
+                }
+            }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        }
+
+    fun createStation(name: String, description: String, icon: String, themeOrdinal: Int) {
+        viewModelScope.launch {
+            repository.createStation(name, description, icon, themeOrdinal)
+        }
+    }
+
+    fun deleteStation(stationId: Long) {
+        viewModelScope.launch { repository.deleteStation(stationId) }
+    }
+
+    fun updateStation(station: StationEntity) {
+        viewModelScope.launch { repository.updateStation(station) }
+    }
+
+    fun reorderStation(stationId: Long, newOrder: Int) {
+        viewModelScope.launch { repository.reorderStation(stationId, newOrder) }
+    }
+
+    // ── Station tracks ──────────────────────────────────────────────
+
+    fun tracksForStation(stationId: Long): Flow<List<TrackEntity>> =
+        repository.tracksForStation(stationId)
+
+    fun addTrackToStation(stationId: Long, trackId: Long) {
+        viewModelScope.launch { repository.addTrackToStation(stationId, trackId) }
+    }
+
+    fun removeTrackFromStation(stationId: Long, trackId: Long) {
+        viewModelScope.launch { repository.removeTrackFromStation(stationId, trackId) }
+    }
+
+    // ── Track operations ────────────────────────────────────────────
+
+    val allTracks: StateFlow<List<TrackEntity>> = repository.allTracks
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val favoriteTracks: StateFlow<List<TrackEntity>> = repository.favoriteTracks
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun toggleFavorite(trackId: Long) {
+        viewModelScope.launch { repository.toggleFavorite(trackId) }
+    }
+
+    fun findOrCreateTrack(uri: String, title: String): Long {
+        var result: Long = -1
+        viewModelScope.launch {
+            result = repository.findOrCreateTrack(uri, title)
+        }
+        return result
     }
 
 // ── Visualizer state ────────────────────────────────────────────
