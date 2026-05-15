@@ -33,7 +33,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class Screen { HOME, SOLO_DREAMSCAPE, DISCOVER, STATIONS, NOW_PLAYING }
+enum class Screen { HOME, SOLO_DREAMSCAPE, DISCOVER, STATIONS, NOW_PLAYING, LIBRARY, SETTINGS, ONBOARDING }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 

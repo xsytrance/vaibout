@@ -33,6 +33,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -120,6 +122,8 @@ fun HomeScreen(
     onPickTrack: () -> Unit,
     onEnterDreamscape: () -> Unit,
     onDiscoverMusic: () -> Unit,
+    onOpenLibrary: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     val trackName          by viewModel.trackName.collectAsState()
     val trackUri           by viewModel.trackUri.collectAsState()
@@ -158,20 +162,46 @@ fun HomeScreen(
             // ── Header ────────────────────────────────────────────────
             item {
                 Spacer(Modifier.height(32.dp))
-                Text(
-                    "vAIb out!",
-                    color         = Color.White,
-                    fontSize      = 32.sp,
-                    fontWeight    = FontWeight.ExtraBold,
-                    letterSpacing = (-1.0).sp,
-                )
-                Text(
-                    "LET'S CHILL",
-                    color         = atmosphere.primaryColor,
-                    fontSize      = 10.sp,
-                    fontWeight    = FontWeight.SemiBold,
-                    letterSpacing = 2.2.sp,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text(
+                            "vAIb out!",
+                            color = Color.White,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = (-1.0).sp,
+                        )
+                        Text(
+                            "LET'S CHILL",
+                            color = atmosphere.primaryColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 2.2.sp,
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(onClick = onOpenLibrary) {
+                            Icon(
+                                Icons.Default.LibraryMusic,
+                                contentDescription = "Library",
+                                tint = Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                    }
+                }
                 Spacer(Modifier.height(20.dp))
             }
 
