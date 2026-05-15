@@ -438,8 +438,8 @@ implementation("coil-compose:2.8.0")                       // if adding album ar
 - [x] **Stations screen:** Grid layout, add/edit/delete/reorder stations
 - [x] **Station tracks:** Add tracks to stations, browse by station
 - [x] **Library screen:** Unified view of all stations + tracks + vAIbs
-- [ ] **Smart stations:** Auto-generated "All Tracks", "Favorites", "Recent"
-- [ ] **Search improvements:** Filter by station, mood, source
+- [x] **Smart stations:** Auto-generated "All Tracks", "Favorites", "Recent"
+- [x] **Search improvements:** Filter by station, mood, source
 
 ### Phase 5 — Polish & Onboarding (Week 5–6)
 - [ ] **Onboarding flow:** 3-screen intro with permission explanation
