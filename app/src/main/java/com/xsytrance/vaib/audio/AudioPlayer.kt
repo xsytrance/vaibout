@@ -2,11 +2,16 @@ package com.xsytrance.vaib.audio
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+
+private const val TAG = "VaibAudioPlayer"
 
 class AudioPlayer(context: Context) {
 
@@ -21,13 +26,28 @@ class AudioPlayer(context: Context) {
     private val _isEnded     = MutableStateFlow(false)
     val isEnded: StateFlow<Boolean> = _isEnded
 
+    private val _audioSessionId = MutableStateFlow(0)
+    val audioSessionIdFlow: StateFlow<Int> = _audioSessionId
+
     val currentPositionMs: Long get() = player.currentPosition
     val durationMs: Long        get() = player.duration
 
     // Available after prepare(); 0 means not yet assigned.
     val audioSessionId: Int get() = player.audioSessionId
 
+    /** Called when audio session ID changes — visualizer/EQ must reattach. */
+    var onAudioSessionIdChanged: ((Int) -> Unit)? = null
+
     init {
+        // Configure audio focus: music playback, handle focus automatically
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+            .build()
+        player.setAudioAttributes(audioAttributes, /* handleAudioFocus= */ true)
+        player.setHandleAudioBecomingNoisy(true)
+        Log.d(TAG, "Audio focus configured: USAGE_MEDIA, handleAudioFocus=true, becomingNoisy=true")
+
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _isPlaying.value = isPlaying
@@ -36,6 +56,14 @@ class AudioPlayer(context: Context) {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 _isBuffering.value = playbackState == Player.STATE_BUFFERING
                 _isEnded.value     = playbackState == Player.STATE_ENDED
+            }
+
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                Log.d(TAG, "onAudioSessionIdChanged: $audioSessionId")
+                _audioSessionId.value = audioSessionId
+                if (audioSessionId != 0) {
+                    onAudioSessionIdChanged?.invoke(audioSessionId)
+                }
             }
         })
     }

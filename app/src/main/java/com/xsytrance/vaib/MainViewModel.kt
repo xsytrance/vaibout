@@ -110,6 +110,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     init {
+        // Wire visualizer + EQ reattachment when audio session changes
+        audioPlayer.onAudioSessionIdChanged = { sessionId ->
+            android.util.Log.d("VaibMainViewModel", "sessionIdChanged=$sessionId, reattaching visualizer + EQ")
+            analyzer.start(sessionId)
+            val preset = _currentEqPreset.value
+            if (preset != EqPreset.FLAT) {
+                eqController.apply(sessionId, preset)
+            }
+        }
+
         restorePersistedTrack(application)
         prepareStartupTrack(application)
         prepareSessionQueue()
