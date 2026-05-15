@@ -435,10 +435,10 @@ implementation("coil-compose:2.8.0")                       // if adding album ar
 - [x] **Touch interaction:** Visualizer responds to taps and drags
 
 ### Phase 4 — Stations & Organization (Week 4–5)
-- [ ] **Stations screen:** Grid layout, add/edit/delete/reorder stations
-- [ ] **Station tracks:** Add tracks to stations, browse by station
+- [x] **Stations screen:** Grid layout, add/edit/delete/reorder stations
+- [x] **Station tracks:** Add tracks to stations, browse by station
+- [x] **Library screen:** Unified view of all stations + tracks + vAIbs
 - [ ] **Smart stations:** Auto-generated "All Tracks", "Favorites", "Recent"
-- [ ] **Library screen:** Unified view of all stations + tracks + vAIbs
 - [ ] **Search improvements:** Filter by station, mood, source
 
 ### Phase 5 — Polish & Onboarding (Week 5–6)
