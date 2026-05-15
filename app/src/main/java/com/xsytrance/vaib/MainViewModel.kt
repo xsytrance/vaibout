@@ -90,6 +90,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _queueReady = MutableStateFlow(false)
     val queueReady: StateFlow<Boolean> = _queueReady.asStateFlow()
 
+    private val _queueIndex = MutableStateFlow(0)
+    val currentQueueIndex: StateFlow<Int> = _queueIndex.asStateFlow()
+
+    val queueSize: Int get() = _sessionQueue.value.size
+
+    /** Whether the prev button should be enabled. */
+    val canGoPrev: Boolean get() = _sessionQueue.value.isNotEmpty() && _queueIndex.value > 0
+
+    /** Whether the next button should be enabled. */
+    val canGoNext: Boolean get() = _sessionQueue.value.isNotEmpty()
+
     // ── Visual Signal Engine ──────────────────────────────────────────
 
     val visualSignal = com.xsytrance.vaib.core.design.VisualSignalEngine(
@@ -107,17 +118,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         observePlaybackEnd()
     }
 
-    /** Prepare a shuffled session queue on startup. */
+    /** Prepare a shuffled session queue on startup with fallback queries. */
     private fun prepareSessionQueue() {
         viewModelScope.launch {
-            try {
-                val items = InternetArchiveApi.fetchItems("")
-                if (items.isNotEmpty()) {
-                    _sessionQueue.value = items.shuffled()
-                    _queueReady.value = true
+            val fallbackQueries = listOf("", "chill", "electronic", "ambient")
+            for (query in fallbackQueries) {
+                try {
+                    val items = InternetArchiveApi.fetchItems(query)
+                    if (items.isNotEmpty()) {
+                        _sessionQueue.value = items.shuffled()
+                        _queueIndex.value = 0
+                        _queueReady.value = true
+                        return@launch
+                    }
+                } catch (_: Exception) {
+                    // Try next query
                 }
-            } catch (_: Exception) {
-                // Queue stays empty, app works normally
             }
         }
     }
@@ -126,10 +142,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun playNextFromQueue() {
         val queue = _sessionQueue.value
         if (queue.isEmpty()) return
-        val currentId = _trackUri.value?.toString()?.substringAfterLast("/") ?: ""
-        val nextIndex = queue.indexOfFirst { it.id == currentId } + 1
-        val nextItem = queue.getOrNull(nextIndex) ?: queue.first()
-        loadOnlineTrack(nextItem)
+        val idx = (_queueIndex.value + 1) % queue.size
+        _queueIndex.value = idx
+        loadOnlineTrack(queue[idx])
+    }
+
+    /** Play the previous track from the session queue. */
+    fun playPreviousFromQueue() {
+        val queue = _sessionQueue.value
+        if (queue.isEmpty()) return
+        val idx = if (_queueIndex.value > 0) _queueIndex.value - 1 else queue.lastIndex
+        _queueIndex.value = idx
+        loadOnlineTrack(queue[idx])
     }
 
     // ── Track restore ─────────────────────────────────────────────────

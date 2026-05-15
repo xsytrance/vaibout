@@ -134,9 +134,11 @@ fun HomeScreen(
 
     val atmosphere   by viewModel.currentAtmosphere.collectAsState()
     val queueReady   by viewModel.queueReady.collectAsState()
+    val queueIndex   by viewModel.currentQueueIndex.collectAsState()
     val beatPulse    by viewModel.visualSignal.beatPulse.collectAsState()
     val energy       by viewModel.visualSignal.energy.collectAsState()
     val breathValue  = ambientBreathAnimation(durationMs = 4_000)
+    val liveColors   = com.xsytrance.vaib.core.design.VaibLiveTheme.animateFrom(atmosphere)
 
     var showSaveDialog       by remember { mutableStateOf(false) }
     var nameInput            by remember { mutableStateOf("") }
@@ -220,9 +222,13 @@ fun HomeScreen(
                     currentEqPreset  = currentEqPreset,
                     currentMood      = currentMood,
                     atmosphere       = atmosphere,
+                    liveColors       = liveColors,
                     energy           = energy,
                     beatPulse        = beatPulse,
+                    queueReady       = queueReady,
                     onPlayPause      = viewModel::togglePlayPause,
+                    onPrev           = { viewModel.playPreviousFromQueue() },
+                    onNext           = { viewModel.playNextFromQueue() },
                 )
                 Spacer(Modifier.height(16.dp))
             }
@@ -239,6 +245,16 @@ fun HomeScreen(
                     onDiscover       = onDiscoverMusic,
                 )
                 Spacer(Modifier.height(16.dp))
+
+                // ── Queue status hint ───────────────────────────────────
+                if (queueReady && hasTrack) {
+                    QueueStatusHint(
+                        index     = queueIndex,
+                        size      = viewModel.queueSize,
+                        liveColor = liveColors.primary,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
             }
 
             // ── Saved vAIbs ───────────────────────────────────────────
@@ -755,12 +771,17 @@ private fun TransportControls(
 }
 
 @Composable
-private fun TransportSideButton(icon: @Composable () -> Unit) {
+private fun TransportSideButton(
+    enabled: Boolean = false,
+    onClick: () -> Unit = {},
+    icon: @Composable () -> Unit,
+) {
     Box(
         modifier = Modifier
-            .size(52.dp)
+            .size(48.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(0.04f)),
+            .background(if (enabled) Color.White.copy(0.06f) else Color.Transparent)
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { icon() }
 }
@@ -791,31 +812,29 @@ private fun PauseIcon(modifier: Modifier = Modifier, color: Color = Color.Black)
 }
 
 @Composable
-private fun SkipPrevIcon(modifier: Modifier = Modifier) {
+private fun SkipPrevIcon(modifier: Modifier = Modifier, color: Color = Color.White.copy(0.20f)) {
     Canvas(modifier = modifier) {
-        val c = Color.White.copy(0.20f)
-        drawRect(c, Offset(size.width * 0.10f, size.height * 0.18f),
+        drawRect(color, Offset(size.width * 0.10f, size.height * 0.18f),
             Size(size.width * 0.10f, size.height * 0.64f))
         drawPath(Path().apply {
             moveTo(size.width * 0.88f, size.height * 0.18f)
             lineTo(size.width * 0.28f, size.height * 0.50f)
             lineTo(size.width * 0.88f, size.height * 0.82f)
             close()
-        }, c)
+        }, color)
     }
 }
 
 @Composable
-private fun SkipNextIcon(modifier: Modifier = Modifier) {
+private fun SkipNextIcon(modifier: Modifier = Modifier, color: Color = Color.White.copy(0.20f)) {
     Canvas(modifier = modifier) {
-        val c = Color.White.copy(0.20f)
         drawPath(Path().apply {
             moveTo(size.width * 0.12f, size.height * 0.18f)
             lineTo(size.width * 0.72f, size.height * 0.50f)
             lineTo(size.width * 0.12f, size.height * 0.82f)
             close()
-        }, c)
-        drawRect(c, Offset(size.width * 0.80f, size.height * 0.18f),
+        }, color)
+        drawRect(color, Offset(size.width * 0.80f, size.height * 0.18f),
             Size(size.width * 0.10f, size.height * 0.64f))
     }
 }
@@ -1149,9 +1168,13 @@ private fun DreamdeckHero(
     currentEqPreset: EqPreset,
     currentMood: String,
     atmosphere: VaibAtmosphere,
+    liveColors: com.xsytrance.vaib.core.design.VaibLiveTheme.LiveColors,
     energy: Float,
     beatPulse: Float,
+    queueReady: Boolean,
     onPlayPause: () -> Unit,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
 ) {
     val subtitle = when {
         currentMood.isNotEmpty() -> currentMood
@@ -1241,19 +1264,26 @@ private fun DreamdeckHero(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment     = Alignment.CenterVertically,
         ) {
-            TransportSideButton { SkipPrevIcon(Modifier.size(20.dp)) }
+            // Previous — enabled when queue has tracks
+            val prevAlpha = if (queueReady) 0.55f else 0.18f
+            TransportSideButton(
+                onClick = onPrev,
+                enabled = queueReady,
+            ) {
+                SkipPrevIcon(Modifier.size(20.dp), Color.White.copy(alpha = prevAlpha))
+            }
 
             Spacer(Modifier.width(24.dp))
 
-            val bgColor   = if (hasTrack) atmosphere.primaryColor else Color.White.copy(0.07f)
+            // Play/Pause — beat-pulsing glow ring
+            val bgColor   = if (hasTrack) liveColors.primary else Color.White.copy(0.07f)
             val iconColor = if (hasTrack) Color.Black else Color.White.copy(0.18f)
-            // Beat-pulsing glow ring when playing
             val glowAlpha = if (isPlaying) (beatPulse * 0.35f).coerceIn(0f, 0.35f) else 0f
             Box(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(atmosphere.primaryColor.copy(alpha = glowAlpha))
+                    .background(liveColors.primary.copy(alpha = glowAlpha))
                     .padding(4.dp)
                     .clip(CircleShape)
                     .background(bgColor)
@@ -1266,7 +1296,14 @@ private fun DreamdeckHero(
 
             Spacer(Modifier.width(24.dp))
 
-            TransportSideButton { SkipNextIcon(Modifier.size(20.dp)) }
+            // Next — enabled when queue has tracks
+            val nextAlpha = if (queueReady) 0.55f else 0.18f
+            TransportSideButton(
+                onClick = onNext,
+                enabled = queueReady,
+            ) {
+                SkipNextIcon(Modifier.size(20.dp), Color.White.copy(alpha = nextAlpha))
+            }
         }
 
         // Progress line at very bottom
@@ -1487,6 +1524,24 @@ private fun KimiLabStamp(atmosphere: VaibAtmosphere) {
                 letterSpacing = 0.2.sp,
             )
         }
+    }
+}
+
+// ── Queue status hint ────────────────────────────────────────────────
+
+@Composable
+private fun QueueStatusHint(index: Int, size: Int, liveColor: Color) {
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        modifier              = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            "Queue: ${index + 1}/$size",
+            color         = liveColor.copy(alpha = 0.45f),
+            fontSize      = 10.sp,
+            fontWeight    = FontWeight.Medium,
+            letterSpacing = 0.3.sp,
+        )
     }
 }
 
