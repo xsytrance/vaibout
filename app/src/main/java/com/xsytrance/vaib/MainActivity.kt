@@ -8,8 +8,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import com.xsytrance.vaib.core.design.VaibTheme
 import com.xsytrance.vaib.ui.*
 
@@ -37,43 +45,49 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             VaibTheme {
-                val screen by viewModel.screen.collectAsState()
-                when (screen) {
-                    Screen.HOME -> HomeScreen(
-                        viewModel = viewModel,
-                        onPickTrack = { pickAudio.launch(arrayOf("audio/*")) },
-                        onEnterDreamscape = { viewModel.navigateTo(Screen.SOLO_DREAMSCAPE) },
-                        onDiscoverMusic = { viewModel.navigateTo(Screen.DISCOVER) },
-                        onOpenLibrary = { viewModel.navigateTo(Screen.LIBRARY) },
-                        onOpenSettings = { viewModel.navigateTo(Screen.SETTINGS) },
-                    )
-                    Screen.SOLO_DREAMSCAPE -> SoloDreamscapeScreen(
-                        viewModel = viewModel,
-                        onBack = { viewModel.navigateTo(Screen.HOME) },
-                    )
-                    Screen.DISCOVER -> DiscoverScreen(
-                        viewModel = viewModel,
-                        onBack = { viewModel.navigateTo(Screen.HOME) },
-                    )
-                    Screen.STATIONS -> StationsScreen(
-                        viewModel = viewModel,
-                        onBack = { viewModel.navigateTo(Screen.HOME) },
-                    )
-                    Screen.NOW_PLAYING -> NowPlayingScreen(
-                        viewModel = viewModel,
-                        onBack = { viewModel.navigateTo(Screen.HOME) },
-                    )
-                    Screen.LIBRARY -> LibraryScreen(
-                        viewModel = viewModel,
-                        onBack = { viewModel.navigateTo(Screen.HOME) },
-                    )
-                    Screen.SETTINGS -> SettingsScreen(
-                        viewModel = viewModel,
-                        onBack = { viewModel.navigateTo(Screen.HOME) },
-                    )
-                    Screen.ONBOARDING -> OnboardingScreen(
-                        onComplete = { viewModel.navigateTo(Screen.HOME) },
-                    )
+                var showSplash by remember { mutableStateOf(true) }
+
+                if (showSplash) {
+                    SplashScreen(onFinished = { showSplash = false })
+                } else {
+                    val screen by viewModel.screen.collectAsState()
+                    when (screen) {
+                        Screen.HOME -> HomeScreen(
+                            viewModel = viewModel,
+                            onPickTrack = { pickAudio.launch(arrayOf("audio/*")) },
+                            onEnterDreamscape = { viewModel.navigateTo(Screen.SOLO_DREAMSCAPE) },
+                            onDiscoverMusic = { viewModel.navigateTo(Screen.DISCOVER) },
+                            onOpenLibrary = { viewModel.navigateTo(Screen.LIBRARY) },
+                            onOpenSettings = { viewModel.navigateTo(Screen.SETTINGS) },
+                        )
+                        Screen.SOLO_DREAMSCAPE -> SoloDreamscapeScreen(
+                            viewModel = viewModel,
+                            onBack = { viewModel.navigateTo(Screen.HOME) },
+                        )
+                        Screen.DISCOVER -> DiscoverScreen(
+                            viewModel = viewModel,
+                            onBack = { viewModel.navigateTo(Screen.HOME) },
+                        )
+                        Screen.STATIONS -> StationsScreen(
+                            viewModel = viewModel,
+                            onBack = { viewModel.navigateTo(Screen.HOME) },
+                        )
+                        Screen.NOW_PLAYING -> NowPlayingScreen(
+                            viewModel = viewModel,
+                            onBack = { viewModel.navigateTo(Screen.HOME) },
+                        )
+                        Screen.LIBRARY -> LibraryScreen(
+                            viewModel = viewModel,
+                            onBack = { viewModel.navigateTo(Screen.HOME) },
+                        )
+                        Screen.SETTINGS -> SettingsScreen(
+                            viewModel = viewModel,
+                            onBack = { viewModel.navigateTo(Screen.HOME) },
+                        )
+                        Screen.ONBOARDING -> OnboardingScreen(
+                            onComplete = { viewModel.navigateTo(Screen.HOME) },
+                        )
+                    }
                 }
             }
         }
