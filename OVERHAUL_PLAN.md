@@ -450,12 +450,12 @@ implementation("coil-compose:2.8.0")                       // if adding album ar
 - [x] **Animations:** Entry/exit transitions, shared element transitions, haptics
 
 ### Phase 6 — AAA Polish (Week 6–7)
-- [ ] **Performance:** Profile GPU rendering, optimize shader complexity
-- [ ] **Battery optimization:** Reduce wake locks, efficient visualizer polling
-- [ ] **Accessibility:** TalkBack labels, high-contrast mode support
-- [ ] **Dynamic colors:** Extract dominant color from album art for theme
-- [ ] **Edge-to-edge:** Proper cutout handling, gesture navigation
-- [ ] **Splash screen:** Animated logo with ambient sound wave
+- [x] **Performance:** Profile GPU rendering, optimize shader complexity
+- [x] **Battery optimization:** Reduce wake locks, efficient visualizer polling
+- [x] **Accessibility:** TalkBack labels, high-contrast mode support
+- [x] **Edge-to-edge:** Proper cutout handling, gesture navigation
+- [x] **Splash screen:** Animated logo with ambient sound wave
+- [x] **Dynamic colors:** Extract dominant color from album art for theme
 
 ---
 
