@@ -147,6 +147,13 @@ fun SoloDreamscapeScreen(
     var dragOffsetX     by remember { mutableFloatStateOf(0f) }
     // longPressGlow: 0→1 while held
     var longPressGlow   by remember { mutableFloatStateOf(0f) }
+    var longPressPos    by remember { mutableStateOf(Offset.Zero) }
+    // Drag trail: capped list of recent points
+    val trailPoints     = remember { mutableListOf<com.xsytrance.vaib.core.design.TouchTrailPoint>() }
+    // Beat ring: expanding ring on beat transient
+    var beatRingPulse   by remember { mutableFloatStateOf(0f) }
+    // Beat ring position (randomized)
+    var beatRingPos     by remember { mutableStateOf(Offset(0.5f, 0.5f)) }
 
     // Decay tap pulse each frame via a coroutine
     LaunchedEffect(tapPulseTarget) {
@@ -157,6 +164,34 @@ fun SoloDreamscapeScreen(
                 tapPulse = (tapPulse * 0.88f).coerceAtLeast(0f)
             }
             tapPulse = 0f
+        }
+    }
+
+    // Beat ring: trigger on beat transient
+    LaunchedEffect(audioBeat) {
+        if (audioBeat > 0.3f) {
+            beatRingPulse = 1f
+            beatRingPos = Offset(
+                (0.2f + Math.random() * 0.6f).toFloat(),
+                (0.2f + Math.random() * 0.6f).toFloat(),
+            )
+            while (beatRingPulse > 0.02f) {
+                delay(16L)
+                beatRingPulse = (beatRingPulse * 0.92f).coerceAtLeast(0f)
+            }
+            beatRingPulse = 0f
+        }
+    }
+
+    // Trail decay: age out old points
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(32L)
+            trailPoints.removeAll { it.age > 1f }
+            // Age all points
+            val aged = trailPoints.map { it.copy(age = it.age + 0.03f) }
+            trailPoints.clear()
+            trailPoints.addAll(aged)
         }
     }
 
@@ -185,7 +220,8 @@ fun SoloDreamscapeScreen(
                         tapPosition    = offset
                         tapPulseTarget = tapPulseTarget + 1f  // re-trigger
                     },
-                    onLongPress = {
+                    onLongPress = { offset ->
+                        longPressPos = offset
                         longPressGlow  = 0f
                         scope.launch {
                             // Gently ramp up while hold is detected, then decay
@@ -198,23 +234,48 @@ fun SoloDreamscapeScreen(
                     },
                 )
             }
-            // Drag: bend wave phase
+            // Drag: bend wave phase + leave glowing trail
             .pointerInput(Unit) {
                 detectDragGestures(
+                    onDragStart = { offset ->
+                        trailPoints.add(
+                            com.xsytrance.vaib.core.design.TouchTrailPoint(
+                                x = offset.x, y = offset.y, age = 0f, pressure = 0.8f
+                            )
+                        )
+                    },
                     onDragEnd   = { scope.launch { while (abs(dragOffsetX) > 0.002f) { delay(16L); dragOffsetX *= 0.90f }; dragOffsetX = 0f } },
-                    onDrag      = { _, delta -> dragOffsetX = (dragOffsetX + delta.x / 400f).coerceIn(-1f, 1f) },
+                    onDrag      = { _, dragAmount ->
+                        dragOffsetX = (dragOffsetX + dragAmount.x / 400f).coerceIn(-1f, 1f)
+                        // Trail points added via pointer position — use last known tap position as approximation
+                        if (trailPoints.size > 80) trailPoints.removeAt(0)
+                        val lastPt = trailPoints.lastOrNull()
+                        if (lastPt != null) {
+                            val newX = lastPt.x + dragAmount.x
+                            val newY = lastPt.y + dragAmount.y
+                            trailPoints.add(
+                                com.xsytrance.vaib.core.design.TouchTrailPoint(
+                                    x = newX, y = newY, age = 0f, pressure = 0.6f + longPressGlow * 0.4f
+                                )
+                            )
+                        }
+                    },
                 )
             },
     ) {
         DreamdeckFullscreenViz(
-            energy       = audioEnergy,
-            beat         = audioBeat,
-            tapPulse     = tapPulse,
-            tapPosition  = tapPosition,
-            dragOffsetX  = dragOffsetX,
+            energy        = audioEnergy,
+            beat          = audioBeat,
+            tapPulse      = tapPulse,
+            tapPosition   = tapPosition,
+            dragOffsetX   = dragOffsetX,
             longPressGlow = longPressGlow,
-            atmosphere   = atmosphere,
-            modifier     = Modifier.fillMaxSize(),
+            longPressPos  = longPressPos,
+            trailPoints   = trailPoints.toList(),
+            beatRingPulse = beatRingPulse,
+            beatRingPos   = beatRingPos,
+            atmosphere    = atmosphere,
+            modifier      = Modifier.fillMaxSize(),
         )
 
         // ── Close button ─────────────────────────────────────────────
@@ -245,6 +306,9 @@ fun SoloDreamscapeScreen(
             )
         }
 
+        // ── DREAMDECK 2.0 stamp ──────────────────────────────────────
+        DreamdeckStamp(atmosphere = atmosphere, energy = audioEnergy)
+
         // Subtle fallback note
         if (!reactiveAvailable) {
             Text(
@@ -270,6 +334,10 @@ private fun DreamdeckFullscreenViz(
     tapPosition:   Offset,
     dragOffsetX:   Float,
     longPressGlow: Float,
+    longPressPos:  Offset,
+    trailPoints:   List<com.xsytrance.vaib.core.design.TouchTrailPoint>,
+    beatRingPulse: Float,
+    beatRingPos:   Offset,
     atmosphere:    VaibAtmosphere,
     modifier:      Modifier = Modifier,
 ) {
@@ -478,6 +546,58 @@ private fun DrawScope.drawReactiveBars(
                 size    = Size(barW, 16f),
             )
         }
+
+        // ── Drag trail ──────────────────────────────────────────
+        if (trailPoints.size >= 2) {
+            val path = Path()
+            val first = trailPoints.first()
+            path.moveTo(first.x, first.y)
+            for (i in 1 until trailPoints.size) {
+                val pt = trailPoints[i]
+                path.lineTo(pt.x, pt.y)
+            }
+            val fade = (1f - trailPoints.first().age).coerceIn(0.05f, 0.8f)
+            drawPath(
+                path,
+                atmosphere.primaryColor.copy(alpha = fade * 0.25f),
+                style = Stroke(width = 3f + energy * 2f, cap = StrokeCap.Round, join = StrokeJoin.Round),
+            )
+        }
+
+        // ── Long-press glow orb ─────────────────────────────────
+        if (longPressGlow > 0.02f) {
+            val orbRadius = (18f + longPressGlow * 40f)
+            val orbAlpha  = (longPressGlow * 0.50f).coerceIn(0f, 0.50f)
+            drawCircle(
+                color  = atmosphere.primaryColor.copy(alpha = orbAlpha),
+                radius = orbRadius,
+                center = longPressPos,
+            )
+            drawCircle(
+                color  = atmosphere.secondaryColor.copy(alpha = orbAlpha * 0.4f),
+                radius = orbRadius * 0.6f,
+                center = longPressPos,
+            )
+        }
+
+        // ── Beat pop ring ───────────────────────────────────────
+        if (beatRingPulse > 0.02f) {
+            val maxR = size.width * 0.35f
+            val ringRadius = maxR * (1f - beatRingPulse * 0.5f) + 8f
+            val ringAlpha  = (beatRingPulse * 0.35f).coerceIn(0f, 0.35f)
+            drawCircle(
+                color  = atmosphere.primaryColor.copy(alpha = ringAlpha),
+                radius = ringRadius,
+                center = Offset(beatRingPos.x * size.width, beatRingPos.y * size.height),
+                style  = Stroke(width = 2.5f),
+            )
+            drawCircle(
+                color  = atmosphere.secondaryColor.copy(alpha = ringAlpha * 0.5f),
+                radius = ringRadius * 0.75f,
+                center = Offset(beatRingPos.x * size.width, beatRingPos.y * size.height),
+                style  = Stroke(width = 1.5f),
+            )
+        }
     }
 }
 
@@ -504,6 +624,38 @@ private fun DrawScope.drawTapRipple(
         radius = 6f + pulse * 8f,
         center = center,
     )
+}
+
+// ── DREAMDECK 2.0 stamp ────────────────────────────────────────────
+
+@Composable
+private fun DreamdeckStamp(atmosphere: VaibAtmosphere, energy: Float) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.BottomEnd,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.End,
+            modifier = Modifier.padding(end = 16.dp, bottom = 80.dp),
+        ) {
+            // Main stamp
+            Text(
+                text       = "DREAMDECK 2.0",
+                color      = atmosphere.primaryColor.copy(alpha = (0.35f + energy * 0.25f).coerceIn(0.25f, 0.65f)),
+                fontSize   = 8.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 1.0.sp,
+            )
+            // Sub label
+            Text(
+                text       = "touch-audio-01",
+                color      = VaibColors.TextSoft.copy(alpha = 0.30f),
+                fontSize   = 6.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.3.sp,
+            )
+        }
+    }
 }
 
 // ── Mini-player label ─────────────────────────────────────────────────
