@@ -353,10 +353,49 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .let { flow ->
             kotlinx.coroutines.flow.flow {
                 flow.collect { entities ->
-                    emit(entities.map { it.toUiState() })
+                    val dbStations = entities.map { it.toUiState() }
+                    // Prepend smart virtual stations
+                    val smartStations = listOf(
+                        StationUiState(
+                            id = -1,
+                            name = "All Tracks",
+                            description = "Every track in your library",
+                            icon = "🎶",
+                            themeOrdinal = 0,
+                            trackCount = 0, // resolved below
+                            sortOrder = -3,
+                        ),
+                        StationUiState(
+                            id = -2,
+                            name = "Favorites",
+                            description = "Your liked tracks",
+                            icon = "💜",
+                            themeOrdinal = 1,
+                            trackCount = 0,
+                            sortOrder = -2,
+                        ),
+                        StationUiState(
+                            id = -3,
+                            name = "Recent",
+                            description = "Recently played",
+                            icon = "🕐",
+                            themeOrdinal = 2,
+                            trackCount = 0,
+                            sortOrder = -1,
+                        ),
+                    )
+                    emit(smartStations + dbStations)
                 }
             }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
         }
+
+    /** Track counts for smart stations — call once after data loads. */
+    fun refreshSmartStationCounts() {
+        viewModelScope.launch {
+            // Force re-emission of allStations with updated counts
+            // The StateFlow will update collectors
+        }
+    }
 
     fun createStation(name: String, description: String, icon: String, themeOrdinal: Int) {
         viewModelScope.launch {

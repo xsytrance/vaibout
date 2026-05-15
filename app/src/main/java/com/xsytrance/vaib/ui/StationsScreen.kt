@@ -95,8 +95,9 @@ fun StationsScreen(
             Spacer(Modifier.height(8.dp))
 
             // ── Summary bar ──────────────────────────────────
+            val realStations = stations.count { it.id > 0 }
             Text(
-                text = "${stations.size} stations",
+                text = "$realStations stations",
                 color = VaibColors.TextSecondary,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
@@ -116,11 +117,18 @@ fun StationsScreen(
                 ) {
                     items(
                         items = stations,
-                        key = { it.id },
+                        key = { "station_${it.id}" },
                     ) { station ->
                         StationCard(
                             station = station,
-                            onPlay = { /* TODO: create queue from station tracks */ },
+                            onPlay = {
+                                when (station.id) {
+                                    -1L -> { /* TODO: play all tracks */ }
+                                    -2L -> { /* TODO: play favorites */ }
+                                    -3L -> { /* TODO: play recent */ }
+                                    else -> { /* TODO: create queue from station tracks */ }
+                                }
+                            },
                             onEdit = { /* TODO: edit station */ },
                             onDelete = { stationToDelete = station },
                         )

@@ -1,5 +1,10 @@
 package com.xsytrance.vaib.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -42,6 +47,23 @@ fun LibraryScreen(
     val favorites by viewModel.favoriteTracks.collectAsState()
     val vaibs by viewModel.savedVaibs.collectAsState()
 
+    // ── Search state ──────────────────────────────────────────
+    var searchVisible by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    val query = searchQuery.trim().lowercase()
+
+    fun <T> filterByQuery(list: List<T>, vararg fields: (T) -> String?): List<T> {
+        if (query.isEmpty()) return list
+        return list.filter { item ->
+            fields.any { field -> field(item)?.lowercase()?.contains(query) == true }
+        }
+    }
+
+    val filteredStations = filterByQuery(stations, { it.name }, { it.description })
+    val filteredTracks = filterByQuery(tracks, { it.title }, { it.artist }, { it.sourceType })
+    val filteredFavorites = filterByQuery(favorites, { it.title }, { it.artist })
+    val filteredVaibs = filterByQuery(vaibs, { it.vaibName }, { it.trackName }, { it.mood })
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -76,15 +98,57 @@ fun LibraryScreen(
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = (-0.5).sp,
                 )
-                // Search button
-                IconButton(onClick = { /* TODO: search */ }) {
+                IconButton(onClick = { searchVisible = !searchVisible }) {
                     Icon(
-                        Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = Color.White.copy(alpha = 0.5f),
+                        if (searchVisible) Icons.Default.Close else Icons.Default.Search,
+                        contentDescription = if (searchVisible) "Close search" else "Search",
+                        tint = Color.White.copy(alpha = if (searchVisible) 1f else 0.5f),
                         modifier = Modifier.size(22.dp),
                     )
                 }
+            }
+
+            // ── Search bar ─────────────────────────────────────
+            AnimatedVisibility(
+                visible = searchVisible,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = {
+                        Text(
+                            "Search stations, tracks, moods…",
+                            color = VaibColors.TextTertiary,
+                            fontSize = 14.sp,
+                        )
+                    },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = VaibColors.CyanPulse,
+                        unfocusedBorderColor = VaibColors.TextSecondary.copy(alpha = 0.3f),
+                        cursorColor = VaibColors.CyanPulse,
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = VaibColors.TextSecondary,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                    },
+                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -125,10 +189,10 @@ fun LibraryScreen(
 
             // ── Content ─────────────────────────────────────────
             when (selectedTab) {
-                0 -> StationsTab(stations = stations, onPlayStation = { /* TODO */ })
-                1 -> TracksTab(tracks = tracks, onPlayTrack = onPlayTrack)
-                2 -> FavoritesTab(tracks = favorites, onPlayTrack = onPlayTrack)
-                3 -> VaibsTab(vaibs = vaibs, onPlayVaib = { viewModel.loadVaib(it) })
+                0 -> StationsTab(stations = filteredStations, onPlayStation = { /* TODO */ })
+                1 -> TracksTab(tracks = filteredTracks, onPlayTrack = onPlayTrack)
+                2 -> FavoritesTab(tracks = filteredFavorites, onPlayTrack = onPlayTrack)
+                3 -> VaibsTab(vaibs = filteredVaibs, onPlayVaib = { viewModel.loadVaib(it) })
             }
         }
     }
