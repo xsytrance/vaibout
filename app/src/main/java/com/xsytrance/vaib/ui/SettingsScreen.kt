@@ -142,6 +142,39 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(20.dp))
 
+            // ── Continuous Play ──────────────────────────────────
+            SectionHeader("CONTINUOUS PLAY")
+            SettingsCard {
+                val continuousPlay by viewModel.continuousPlay.collectAsState()
+                SettingsRow(
+                    title = "Auto-Play",
+                    subtitle = "Always keep music playing from your library",
+                    onClick = { viewModel.toggleContinuousPlay() },
+                ) {
+                    Switch(
+                        checked = continuousPlay,
+                        onCheckedChange = { viewModel.toggleContinuousPlay() },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.Black,
+                            checkedTrackColor = VaibColors.CyanPulse,
+                            uncheckedThumbColor = Color.White,
+                            uncheckedTrackColor = VaibColors.TextSecondary.copy(alpha = 0.3f),
+                        ),
+                    )
+                }
+                if (continuousPlay) {
+                    Text(
+                        "Music auto-plays from your shuffled library on startup and keeps going forever. Pick a track or station to override.",
+                        color = VaibColors.TextSecondary.copy(alpha = 0.6f),
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+
             // ── Sleep Timer ──────────────────────────────────────
             SectionHeader("SLEEP TIMER")
             SettingsCard {

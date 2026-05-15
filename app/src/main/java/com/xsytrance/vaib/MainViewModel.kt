@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -83,9 +84,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Queue ─────────────────────────────────────────────────
 
-    val queue = repository.allTracks  // Initially just the full library
+    val queue = repository.allTracks
     private var queueUrns: List<String> = emptyList()
     private var currentQueueIndex = -1
+
+    /** Whether the app should always keep music playing (default: true). */
+    private val _continuousPlay = MutableStateFlow(true)
+    val continuousPlay: StateFlow<Boolean> = _continuousPlay.asStateFlow()
+
+    // ── Auto-play state ───────────────────────────────────────
+    private var autoPlayStarted = false
 
     // ── Discover ──────────────────────────────────────────────
 
@@ -104,9 +112,46 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
-        restorePersistedTrack(application)
+        focusManager.bindPlayer(audioPlayer)
         startPositionTicker()
         observePlaybackEnd()
+        observeQueueAndAutoPlay()
+    }
+
+    // ── Auto-play: observe library and keep queue full ────────
+
+    private fun observeQueueAndAutoPlay() {
+        viewModelScope.launch {
+            repository.allTracks.collect { tracks ->
+                val uris = tracks.map { Uri.parse(it.uri) }
+                if (uris.isNotEmpty()) {
+                    // Always keep queue populated with all tracks (shuffled)
+                    if (queueUrns.isEmpty()) {
+                        // First load: build shuffled queue and auto-play
+                        val shuffled = uris.shuffled()
+                        queueUrns = shuffled.map { it.toString() }
+                        currentQueueIndex = 0
+                        val firstUri = shuffled[0]
+                        val firstTrack = tracks.find { it.uri == firstUri.toString() }
+                        _trackUri.value = firstUri
+                        _trackName.value = firstTrack?.title ?: "Unknown Track"
+                        trackPrefs.save(firstUri, _trackName.value ?: "Unknown Track")
+                        audioPlayer.loadTrack(firstUri)
+                        PlayerService.start(getApplication(), _trackName.value ?: "vAIb out!")
+                        autoPlayStarted = true
+                    } else {
+                        // Queue was already playing; refresh pool but keep current position
+                        val currentUri = queueUrns.getOrNull(currentQueueIndex)
+                        queueUrns = uris.shuffled().map { it.toString() }
+                        // Try to maintain current track position
+                        if (currentUri != null) {
+                            val newIndex = queueUrns.indexOf(currentUri)
+                            if (newIndex >= 0) currentQueueIndex = newIndex
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // ── Track restore ─────────────────────────────────────────
@@ -138,10 +183,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             audioPlayer.isEnded.collect { ended ->
                 if (ended) {
                     _playbackFraction.value = 0f
-                    // Auto-advance to next in queue
-                    if (currentQueueIndex < queueUrns.size - 1) {
-                        loadQueueItem(currentQueueIndex + 1)
+                    if (_continuousPlay.value) {
+                        autoAdvance()
                     }
+                }
+            }
+        }
+    }
+
+    /** Auto-advance to next track in queue. Refills queue if running low. */
+    private fun autoAdvance() {
+        if (queueUrns.isEmpty()) return
+        val nextIndex = currentQueueIndex + 1
+        if (nextIndex < queueUrns.size) {
+            // Next track exists — play it
+            loadQueueItem(nextIndex)
+        } else {
+            // End of queue — reshuffle and start from beginning
+            viewModelScope.launch {
+                val tracks = repository.allTracks.first()
+                val uris = tracks.map { Uri.parse(it.uri) }.shuffled()
+                if (uris.isNotEmpty()) {
+                    queueUrns = uris.map { it.toString() }
+                    currentQueueIndex = 0
+                    val firstUri = queueUrns[0]
+                    val track = tracks.find { it.uri == firstUri }
+                    _trackUri.value = Uri.parse(firstUri)
+                    _trackName.value = track?.title ?: "Unknown Track"
+                    audioPlayer.loadTrack(Uri.parse(firstUri))
+                    PlayerService.start(getApplication(), _trackName.value ?: "vAIb out!")
                 }
             }
         }
@@ -207,9 +277,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadQueueItem(index: Int) {
         if (index in queueUrns.indices) {
             currentQueueIndex = index
-            _trackUri.value = Uri.parse(queueUrns[index])
-            // TODO: resolve track name from DB or metadata
-            audioPlayer.togglePlayPause()  // Will handle STATE_IDLE → play
+            val uri = Uri.parse(queueUrns[index])
+            _trackUri.value = uri
+            // Resolve track name from DB
+            viewModelScope.launch {
+                val track = repository.allTracks.first().find { it.uri == queueUrns[index] }
+                val name = track?.title ?: "Unknown Track"
+                _trackName.value = name
+                trackPrefs.save(uri, name)
+                audioPlayer.loadTrack(uri)
+                PlayerService.start(getApplication(), name)
+            }
         }
     }
 
@@ -457,6 +535,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setVisualizerStyle(style: VisualizerStyle) {
         _selectedVisualizerStyle.value = style
+    }
+
+    fun toggleContinuousPlay() {
+        _continuousPlay.value = !_continuousPlay.value
     }
 
     // ── Playback / navigation ─────────────────────────────────────────
