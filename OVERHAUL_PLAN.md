@@ -442,12 +442,12 @@ implementation("coil-compose:2.8.0")                       // if adding album ar
 - [x] **Search improvements:** Filter by station, mood, source
 
 ### Phase 5 — Polish & Onboarding (Week 5–6)
-- [ ] **Onboarding flow:** 3-screen intro with permission explanation
-- [ ] **Discover redesign:** Categorized sections, better cards, preview
+- [x] **Onboarding flow:** 3-screen intro with permission explanation
+- [x] **Discover redesign:** Categorized sections, better cards, preview
+- [x] **Sleep timer:** Notification-based timer service
+- [x] **Settings screen:** EQ defaults, crossfade duration, theme picker, sleep timer
+- [x] **Export/import:** vAIb backup to/from JSON
 - [ ] **Animations:** Entry/exit transitions, shared element transitions, haptics
-- [ ] **Sleep timer:** Notification-based timer service
-- [ ] **Settings screen:** EQ defaults, crossfade duration, theme picker, sleep timer
-- [ ] **Export/import:** vAIb backup to/from JSON
 
 ### Phase 6 — AAA Polish (Week 6–7)
 - [ ] **Performance:** Profile GPU rendering, optimize shader complexity
