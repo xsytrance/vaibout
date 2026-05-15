@@ -84,6 +84,7 @@ fun OrbitAtmosphereLayer(
                 canvasH       = h,
                 moodColor     = moodColor,
                 secondaryColor = secondaryMoodColor,
+                energy        = energy,
                 textMeasurer  = textMeasurer,
             )
         }
@@ -135,6 +136,7 @@ private fun DrawScope.drawParticle(
     canvasH: Float,
     moodColor: Color,
     secondaryColor: Color,
+    energy: Float,
     textMeasurer: androidx.compose.ui.text.TextMeasurer,
 ) {
     // Vertical drift: rise upward, wrap around
