@@ -447,7 +447,7 @@ implementation("coil-compose:2.8.0")                       // if adding album ar
 - [x] **Sleep timer:** Notification-based timer service
 - [x] **Settings screen:** EQ defaults, crossfade duration, theme picker, sleep timer
 - [x] **Export/import:** vAIb backup to/from JSON
-- [ ] **Animations:** Entry/exit transitions, shared element transitions, haptics
+- [x] **Animations:** Entry/exit transitions, shared element transitions, haptics
 
 ### Phase 6 — AAA Polish (Week 6–7)
 - [ ] **Performance:** Profile GPU rendering, optimize shader complexity
