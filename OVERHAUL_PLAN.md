@@ -427,12 +427,12 @@ implementation("coil-compose:2.8.0")                       // if adding album ar
 - [ ] **Crossfade:** Configurable track transitions
 
 ### Phase 3 — Visualizers (Week 3–4)
-- [ ] **Shader refactor:** Abstract `VisualizerRenderer` base, add style selector
-- [ ] **Nebula shader:** Improve existing (better bloom, particles, responsive energy)
-- [ ] **Waveform shader:** New time-domain visualization
-- [ ] **Particle shader:** New GPU particle system with beat-reactive spawning
-- [ ] **Home screen mini-viz:** Live visualizer preview in NowPlayingCard
-- [ ] **Touch interaction:** Visualizer responds to taps and drags
+- [x] **Shader refactor:** Abstract `VisualizerRenderer` base, add style selector
+- [x] **Nebula shader:** Improve existing (better bloom, particles, responsive energy)
+- [x] **Waveform shader:** New time-domain visualization
+- [x] **Particle shader:** New GPU particle system with beat-reactive spawning
+- [x] **Home screen mini-viz:** Live visualizer preview in NowPlayingCard
+- [x] **Touch interaction:** Visualizer responds to taps and drags
 
 ### Phase 4 — Stations & Organization (Week 4–5)
 - [ ] **Stations screen:** Grid layout, add/edit/delete/reorder stations
