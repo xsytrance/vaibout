@@ -1,10 +1,11 @@
 package com.xsytrance.vaib.core.design
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 
 /**
- * Describes the visual atmosphere for a vAIb moment — colors, glow, and particle glyphs.
- * Future vAIb cards can supply a custom atmosphere to "paint" the UI without layout changes.
+ * Atmospheric model that paints the UI — background, glow, particles.
+ * Now driven by [StationTheme] (or custom, as in the original [Default]).
  */
 data class VaibAtmosphere(
     val primaryColor:     Color,
@@ -14,13 +15,30 @@ data class VaibAtmosphere(
     val particleGlyphs:   List<String>,
 ) {
     companion object {
-        /** Default cyan/violet OLED atmosphere matching the current design language. */
-        val Default = VaibAtmosphere(
-            primaryColor     = VaibColors.CyanPulse,
-            secondaryColor   = VaibColors.VioletGlow,
-            glowColor        = VaibColors.CyanPulse.copy(alpha = 0.28f),
-            backgroundAccent = Color(0xFF040E10),
-            particleGlyphs   = listOf("♪", "♫", "♬"),
+        /** Original default atmosphere — preserved for backward compatibility. */
+        val Default = StationTheme.NEON_CYAN.toAtmosphere()
+
+        /** Generates a gradient from [primaryColor] → [secondaryColor] for card headers. */
+        fun VaibAtmosphere.cardGradient(): Brush = Brush.verticalGradient(
+            colors = listOf(
+                primaryColor.copy(alpha = 0.35f),
+                secondaryColor.copy(alpha = 0.15f),
+                backgroundAccent,
+            ),
+        )
+
+        /** Generates a sweeping gradient for the Now Playing hero area. */
+        fun VaibAtmosphere.heroGradient(): Brush = Brush.radialGradient(
+            colors = listOf(
+                primaryColor.copy(alpha = 0.18f),
+                secondaryColor.copy(alpha = 0.08f),
+                Color.Transparent,
+            ),
+            center = androidx.compose.ui.geometry.Offset(
+                androidx.compose.ui.unit.dp.Unspecified,
+                androidx.compose.ui.unit.dp.Unspecified,
+            ),
+            radius = 0.8f,
         )
     }
 }
