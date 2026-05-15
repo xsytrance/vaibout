@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -282,7 +283,7 @@ fun DiscoverScreen(
                         }
                     } else {
                         LazyColumn(
-                            contentPadding = PaddingValues(horizontal = 20.dp, bottom = 20.dp),
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             items(s.items, key = { it.id }) { item ->

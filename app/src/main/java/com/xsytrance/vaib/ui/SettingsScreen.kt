@@ -10,7 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -178,7 +178,7 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .size(16.dp)
                                 .clip(CircleShape)
-                                .background(theme.primaryColor),
+                                .background(theme.primary),
                         )
                         Text(
                             theme.label,
@@ -201,7 +201,7 @@ fun SettingsScreen(
                     onClick = { /* TODO: export */ },
                 ) {
                     Icon(
-                        Icons.Default.ChevronRight,
+                        Icons.Default.KeyboardArrowRight,
                         contentDescription = null,
                         tint = VaibColors.TextSecondary.copy(alpha = 0.4f),
                         modifier = Modifier.size(20.dp),
@@ -217,7 +217,7 @@ fun SettingsScreen(
                     onClick = { /* TODO: import */ },
                 ) {
                     Icon(
-                        Icons.Default.ChevronRight,
+                        Icons.Default.KeyboardArrowRight,
                         contentDescription = null,
                         tint = VaibColors.TextSecondary.copy(alpha = 0.4f),
                         modifier = Modifier.size(20.dp),

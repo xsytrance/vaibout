@@ -236,7 +236,7 @@ fun SoloDreamscapeScreen(
         if (!reactiveAvailable) {
             Text(
                 text       = "Reactive audio unavailable",
-                color      = VaibColors.TextSoft.copy(alpha = 0.30f),
+                color      = VaibColors.TextSecondary.copy(alpha = 0.30f),
                 fontSize   = 10.sp,
                 modifier   = Modifier
                     .align(Alignment.TopCenter)

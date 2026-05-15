@@ -10,7 +10,7 @@ import kotlinx.coroutines.*
  */
 object PerformanceMonitor {
 
-    private const TAG = "VaibPerf"
+    private const val TAG: String = "VaibPerf"
 
     // ── Frame timing ──────────────────────────────────────────
     private var frameCount = 0L

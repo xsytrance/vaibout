@@ -1,7 +1,10 @@
 package com.xsytrance.vaib.core.design
 
 import androidx.compose.animation.core.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 
 /**
@@ -22,8 +25,8 @@ object MotionTokens {
     val Linear            = LinearEasing
     val FastOutSlowIn     = FastOutSlowInEasing
     val FastOutLinearIn   = FastOutLinearInEasing
-    val Overshoot         = { Overshoot(1.2f).easing }
-    val Bounce            = { BounceOut easing 1.2f }
+    val Overshoot         = CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f)
+    val Bounce            = CubicBezierEasing(0.34f, 1.6f, 0.6f, 1f)
 
     // ── Standard transitions ──────────────────────────────
     @Composable
@@ -44,8 +47,7 @@ object MotionTokens {
 
     // ── Ambient infinite loops ────────────────────────────
     @Composable
-    fun ambientLoop(durationMs: Long = AmbientMin): InfiniteTransition
-    {
+    fun ambientLoop(durationMs: Long = AmbientMin): InfiniteTransition {
         return rememberInfiniteTransition(label = "ambient")
     }
 
@@ -82,7 +84,7 @@ object ShapeTokens {
     val Medium     = 12.dp
     val Large      = 16.dp
     val XLarge     = 22.dp
-    val Circle     = 50.percent
+    val Circle     = 50
 }
 
 // ── Spacing tokens ────────────────────────────────────────

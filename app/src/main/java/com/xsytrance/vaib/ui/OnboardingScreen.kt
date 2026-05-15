@@ -1,6 +1,7 @@
 package com.xsytrance.vaib.ui
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -30,6 +31,7 @@ import kotlin.math.sin
  * 2. Features — swipeable cards showing Visualizer, Stations, EQ, Discover
  * 3. Permission — RECORD_AUDIO explanation + CTA
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OnboardingScreen(
     onComplete: () -> Unit,

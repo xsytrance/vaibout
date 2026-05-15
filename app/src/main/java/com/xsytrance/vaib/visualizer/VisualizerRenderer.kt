@@ -4,6 +4,11 @@ import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.graphics.Color as AndroidColor
 import android.view.MotionEvent
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.FloatBuffer
+import javax.microedition.khronos.egl.EGLConfig
+import javax.microedition.khronos.opengles.GL10
 
 /**
  * Multi-style OpenGL renderer for the visualizer.
@@ -211,7 +216,7 @@ class VisualizerRenderer(
     companion object {
         private val QUAD_VERTS = floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)
 
-        private const val VERT_SRC = """
+        private val VERT_SRC = """
             attribute vec2 aPosition;
             void main() {
                 gl_Position = vec4(aPosition, 0.0, 1.0);
@@ -219,7 +224,7 @@ class VisualizerRenderer(
         """.trimIndent()
 
         // ─── Nebula: concentric rings + beat ripple + bloom + touch ripple ──
-        private const val FRAG_SRC_NEBULA = """
+        private val FRAG_SRC_NEBULA = """
             precision mediump float;
             uniform vec2  uResolution;
             uniform float uTime;
@@ -302,7 +307,7 @@ class VisualizerRenderer(
         """.trimIndent()
 
         // ─── Waveform: 3D perspective time-domain + touch interaction ──
-        private const val FRAG_SRC_WAVEFORM = """
+        private val FRAG_SRC_WAVEFORM = """
             precision mediump float;
             uniform vec2  uResolution;
             uniform float uTime;
@@ -374,7 +379,7 @@ class VisualizerRenderer(
         """.trimIndent()
 
         // ─── Particles: GPU particle system + touch interaction ──────────
-        private const val FRAG_SRC_PARTICLES = """
+        private val FRAG_SRC_PARTICLES = """
             precision mediump float;
             uniform vec2  uResolution;
             uniform float uTime;

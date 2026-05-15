@@ -8,6 +8,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -158,15 +160,6 @@ fun LibraryScreen(
                 selectedTabIndex = selectedTab,
                 containerColor = Color.Transparent,
                 contentColor = Color.White,
-                edgePadding = 0.dp,
-                indicator = { tabPositions ->
-                    if (selectedTab < tabPositions.size) {
-                        TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                            color = VaibColors.CyanPulse,
-                        )
-                    }
-                },
                 divider = {},
             ) {
                 tabs.forEachIndexed { index, title ->
@@ -301,7 +294,7 @@ private fun StationListItem(
         Spacer(Modifier.width(8.dp))
 
         Icon(
-            Icons.Default.ChevronRight,
+            Icons.Default.ArrowForward,
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.2f),
             modifier = Modifier.size(20.dp),
@@ -567,7 +560,7 @@ private fun VaibListItem(
         }
 
         Icon(
-            Icons.Default.ChevronRight,
+            Icons.Default.ArrowForward,
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.2f),
             modifier = Modifier.size(20.dp),

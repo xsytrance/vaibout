@@ -54,7 +54,7 @@ fun VaibCard(
             Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = vaib.trackName,
-                color = VaibColors.TextSoft,
+                color = VaibColors.TextSecondary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Normal,
                 maxLines = 1,
@@ -70,7 +70,7 @@ fun VaibCard(
                     )
                     Text(
                         text  = "  ·  ${vaib.visualizerStyle}",
-                        color = VaibColors.TextSoft.copy(alpha = 0.55f),
+                        color = VaibColors.TextSecondary.copy(alpha = 0.55f),
                         fontSize = 11.sp,
                     )
                     if (vaib.sourceType == "INTERNET_ARCHIVE") {
@@ -108,7 +108,7 @@ fun VaibCard(
         ) {
             Text(
                 text = "✕",
-                color = VaibColors.TextSoft.copy(alpha = 0.30f),
+                color = VaibColors.TextSecondary.copy(alpha = 0.30f),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Light,
             )

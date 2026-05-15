@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -40,6 +41,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -186,7 +189,7 @@ fun HomeScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         IconButton(onClick = onOpenLibrary) {
                             Icon(
-                                Icons.Default.LibraryMusic,
+                                Icons.Default.List,
                                 contentDescription = "Library",
                                 tint = Color.White.copy(alpha = 0.6f),
                                 modifier = Modifier.size(24.dp),
@@ -323,7 +326,7 @@ fun HomeScreen(
                 item {
                     Text(
                         "No vAIbs saved yet. Hit ⊕ SAVE AS VAIB to capture this moment.",
-                        color      = VaibColors.TextSoft.copy(alpha = 0.36f),
+                        color      = VaibColors.TextSecondary.copy(alpha = 0.36f),
                         fontSize   = 12.sp,
                         lineHeight = 18.sp,
                     )
@@ -339,7 +342,7 @@ fun HomeScreen(
             onDismissRequest  = { pendingDeleteVaib = null },
             containerColor    = VaibColors.DeepBackground,
             titleContentColor = Color.White,
-            textContentColor  = VaibColors.TextSoft,
+            textContentColor  = VaibColors.TextSecondary,
             title = { Text("Delete vAIb?", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
             text  = { Text("\"${vaib.vaibName}\" will be removed.") },
             confirmButton = {
@@ -355,7 +358,7 @@ fun HomeScreen(
             },
             dismissButton = {
                 TextButton(onClick = { pendingDeleteVaib = null }) {
-                    Text("Cancel", color = VaibColors.TextSoft)
+                    Text("Cancel", color = VaibColors.TextSecondary)
                 }
             },
         )
@@ -381,7 +384,7 @@ fun HomeScreen(
             onDismissRequest  = dismissWithCancel,
             containerColor    = VaibColors.DeepBackground,
             titleContentColor = Color.White,
-            textContentColor  = VaibColors.TextSoft,
+            textContentColor  = VaibColors.TextSecondary,
             title = { Text("Save vAIb", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
             text = {
                 Column {
@@ -396,14 +399,14 @@ fun HomeScreen(
                             focusedTextColor     = Color.White,
                             unfocusedTextColor   = Color.White,
                             focusedBorderColor   = VaibColors.CyanPulse,
-                            unfocusedBorderColor = VaibColors.TextSoft.copy(alpha = 0.3f),
+                            unfocusedBorderColor = VaibColors.TextSecondary.copy(alpha = 0.3f),
                             focusedLabelColor    = VaibColors.CyanPulse,
-                            unfocusedLabelColor  = VaibColors.TextSoft,
+                            unfocusedLabelColor  = VaibColors.TextSecondary,
                             cursorColor          = VaibColors.CyanPulse,
                         ),
                     )
                     Spacer(Modifier.height(16.dp))
-                    Text("MOOD", color = VaibColors.TextSoft.copy(0.6f), fontSize = 10.sp,
+                    Text("MOOD", color = VaibColors.TextSecondary.copy(0.6f), fontSize = 10.sp,
                         letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     Row(
@@ -430,7 +433,7 @@ fun HomeScreen(
                         }
                     }
                     Spacer(Modifier.height(16.dp))
-                    Text("EQ", color = VaibColors.TextSoft.copy(0.6f), fontSize = 10.sp,
+                    Text("EQ", color = VaibColors.TextSecondary.copy(0.6f), fontSize = 10.sp,
                         letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     Row(
@@ -478,7 +481,7 @@ fun HomeScreen(
             },
             dismissButton = {
                 TextButton(onClick = dismissWithCancel) {
-                    Text("Cancel", color = VaibColors.TextSoft)
+                    Text("Cancel", color = VaibColors.TextSecondary)
                 }
             },
         )
@@ -681,7 +684,7 @@ private fun CompactVaibCard(
                     Spacer(Modifier.width(8.dp))
                     Text(
                         vaib.mood.ifEmpty { "—" },
-                        color     = VaibColors.TextSoft.copy(0.5f),
+                        color     = VaibColors.TextSecondary.copy(0.5f),
                         fontSize  = 9.sp,
                     )
                 }
@@ -727,75 +730,4 @@ private fun CompactCardWave(accentColor: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// ── VaibOut hero button ──────────────────────────────────────────────
-
-@Composable
-private fun VaibOutButton(hasTrack: Boolean, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        enabled = hasTrack,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = VaibColors.CyanPulse,
-            disabledContainerColor = Color.White.copy(alpha = 0.06f),
-            contentColor = Color.Black,
-            disabledContentColor = Color.White.copy(alpha = 0.2f),
-        ),
-        elevation = ButtonDefaults.buttonElevation(
-            defaultElevation = 0.dp,
-            pressedElevation = 0.dp,
-        ),
-    ) {
-        Text(
-            "vAIb  out!",
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 15.sp,
-            letterSpacing = 1.2.sp,
-        )
-    }
-}
-
-// ── VaibOutlinedButton ───────────────────────────────────────────────
-
-@Composable
-private fun VaibOutlinedButton(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier.height(44.dp),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White.copy(alpha = 0.04f),
-            contentColor = Color.White.copy(alpha = 0.85f),
-        ),
-    ) {
-        Text(
-            label,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.5.sp,
-        )
-    }
-}
-
-// ── TransportSideButton ──────────────────────────────────────────────
-
-@Composable
-private fun TransportSideButton(content: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.06f)),
-        contentAlignment = Alignment.Center,
-    ) {
-        content()
-    }
-}
+// ── VaibOut hero button (removed — use shared VaibOutButton from VaibComponents)

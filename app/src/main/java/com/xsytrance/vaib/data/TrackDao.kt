@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TrackDao {
 
-    @Query("SELECT * FROM tracks ORDER BY lastPlayedAt DESC NULLS LAST")
+    @Query("SELECT * FROM tracks ORDER BY CASE WHEN lastPlayedAt IS NULL THEN 0 ELSE 1 END DESC, lastPlayedAt DESC")
     fun observeAllTracks(): Flow<List<TrackEntity>>
 
-    @Query("SELECT * FROM tracks WHERE isFavorite = 1 ORDER BY lastPlayedAt DESC")
+    @Query("SELECT * FROM tracks WHERE isFavorite = 1 ORDER BY CASE WHEN lastPlayedAt IS NULL THEN 0 ELSE 1 END DESC, lastPlayedAt DESC")
     fun observeFavorites(): Flow<List<TrackEntity>>
 
     @Query("SELECT * FROM tracks WHERE id = :trackId")

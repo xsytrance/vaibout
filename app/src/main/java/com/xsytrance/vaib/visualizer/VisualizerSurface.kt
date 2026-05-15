@@ -6,12 +6,14 @@ import android.view.MotionEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 
 /**
  * Wrapper that hosts an OpenGL ES surface for the visualizer.
@@ -22,6 +24,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
  * Touch interaction is forwarded to the renderer, which uses it to
  * drive ripple/displacement effects in the shader.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun VisualizerSurface(
     modifier: Modifier = Modifier,

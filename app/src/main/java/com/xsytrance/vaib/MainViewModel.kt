@@ -22,6 +22,7 @@ import com.xsytrance.vaib.repository.MusicRepository
 import com.xsytrance.vaib.service.AudioFocusManager
 import com.xsytrance.vaib.service.PlayerService
 import com.xsytrance.vaib.ui.StationUiState
+import com.xsytrance.vaib.ui.toUiState
 import com.xsytrance.vaib.visualizer.VisualizerStyle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -451,6 +452,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 // ── Visualizer state ────────────────────────────────────────────
     private val _selectedVisualizerStyle = MutableStateFlow(VisualizerStyle.NEBULA)
     val selectedVisualizerStyle: StateFlow<VisualizerStyle> = _selectedVisualizerStyle.asStateFlow()
+
+    val playbackSpeed: Float get() = audioPlayer.playbackSpeed
 
     fun setVisualizerStyle(style: VisualizerStyle) {
         _selectedVisualizerStyle.value = style

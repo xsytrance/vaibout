@@ -88,7 +88,6 @@ object VaibAccessibility {
 
     fun Modifier.seekBar(position: Long, duration: Long) = this.semantics {
         contentDescription = "Seek bar, ${position / 1000} seconds of ${duration / 1000} seconds"
-        role = Role.Slider
     }
 
     fun Modifier.energyIndicator(level: Float) = this.semantics {

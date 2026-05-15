@@ -34,10 +34,7 @@ data class VaibAtmosphere(
                 secondaryColor.copy(alpha = 0.08f),
                 Color.Transparent,
             ),
-            center = androidx.compose.ui.geometry.Offset(
-                androidx.compose.ui.unit.dp.Unspecified,
-                androidx.compose.ui.unit.dp.Unspecified,
-            ),
+            center = androidx.compose.ui.geometry.Offset.Unspecified,
             radius = 0.8f,
         )
     }

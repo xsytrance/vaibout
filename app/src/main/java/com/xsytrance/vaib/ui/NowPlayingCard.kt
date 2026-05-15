@@ -112,7 +112,7 @@ fun NowPlayingCard(
             ) {
                 Text(
                     "Pick a track to visualize",
-                    color = VaibColors.TextSoft.copy(alpha = 0.4f),
+                    color = VaibColors.TextSecondary.copy(alpha = 0.4f),
                     fontSize = 14.sp,
                 )
             }
@@ -122,7 +122,7 @@ fun NowPlayingCard(
         Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
             Text(
                 text = trackName ?: "Nothing playing",
-                color = if (hasTrack) Color.White else VaibColors.TextSoft.copy(0.45f),
+                color = if (hasTrack) Color.White else VaibColors.TextSecondary.copy(0.45f),
                 fontSize = if (hasTrack) 18.sp else 16.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -183,8 +183,8 @@ fun NowPlayingCard(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(formatMs(currentPositionMs), color = VaibColors.TextSoft.copy(0.55f), fontSize = 10.sp)
-                        Text(formatMs(durationMs), color = VaibColors.TextSoft.copy(0.55f), fontSize = 10.sp)
+                        Text(formatMs(currentPositionMs), color = VaibColors.TextSecondary.copy(0.55f), fontSize = 10.sp)
+                        Text(formatMs(durationMs), color = VaibColors.TextSecondary.copy(0.55f), fontSize = 10.sp)
                     }
                 }
             }

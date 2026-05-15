@@ -1,12 +1,16 @@
 package com.xsytrance.vaib.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -62,7 +66,7 @@ fun NowPlayingScreen(
         onDispose { ctrl.show(androidx.core.view.WindowInsetsCompat.Type.systemBars()) }
     }
 
-    androidx.compose.ui.BackHandler { onBack() }
+    BackHandler { onBack() }
 
     Box(
         modifier = Modifier
@@ -102,7 +106,7 @@ fun NowPlayingScreen(
                         .background(Color.Black.copy(alpha = 0.4f)),
                 ) {
                     Icon(
-                        Icons.Default.ArrowBack,
+                        Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
                         tint = Color.White,
                         modifier = Modifier.size(20.dp),
@@ -135,13 +139,13 @@ fun NowPlayingScreen(
                     )
 
                     IconButton(onClick = { showEqPanel = !showEqPanel }) {
-                        Icon(
-                            Icons.Default.Equalizer,
-                            contentDescription = "EQ",
-                            tint = if (currentEqPreset != EqPreset.FLAT)
+                        Text(
+                            "EQ",
+                            color = if (currentEqPreset != EqPreset.FLAT)
                                 atmosphere.primaryColor
                             else Color.White.copy(alpha = 0.5f),
-                            modifier = Modifier.size(22.dp),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
@@ -244,25 +248,16 @@ fun NowPlayingScreen(
             ) {
                 // Shuffle
                 IconButton(onClick = { /* TODO: shuffle mode */ }) {
-                    Icon(
-                        Icons.Default.Shuffle,
-                        contentDescription = "Shuffle",
-                        tint = Color.White.copy(alpha = 0.4f),
-                        modifier = Modifier.size(26.dp),
-                    )
+                        Text("⇄", color = Color.White.copy(alpha = 0.4f), fontSize = 18.sp)
+                    }
                 }
 
                 Spacer(Modifier.width(24.dp))
 
                 // Previous
                 IconButton(onClick = { viewModel.skipPrevious() }) {
-                    Icon(
-                        Icons.Default.SkipPrevious,
-                        contentDescription = "Previous",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp),
-                    )
-                }
+                        Text("⏮", color = Color.White, fontSize = 20.sp)
+                    }
 
                 Spacer(Modifier.width(24.dp))
 
@@ -282,32 +277,25 @@ fun NowPlayingScreen(
                         .clickable { viewModel.togglePlayPause() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = Color.Black,
-                        modifier = Modifier.size(32.dp),
+                    Text(
+                        if (isPlaying) "⏸" else "▶",
+                        color = Color.Black,
+                        fontSize = 28.sp,
                     )
-                }
 
                 Spacer(Modifier.width(24.dp))
 
                 // Next
                 IconButton(onClick = { viewModel.skipNext() }) {
-                    Icon(
-                        Icons.Default.SkipNext,
-                        contentDescription = "Next",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp),
-                    )
-                }
+                        Text("⏭", color = Color.White, fontSize = 20.sp)
+                    }
 
                 Spacer(Modifier.width(24.dp))
 
                 // Speed button
                 IconButton(onClick = { showSpeedPicker = !showSpeedPicker }) {
                     Text(
-                        text = "${"%.0f".format(viewModel.audioPlayer.playbackSpeed)}x",
+                        text = "${"%.0f".format(viewModel.playbackSpeed)}x",
                         color = atmosphere.primaryColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -318,13 +306,8 @@ fun NowPlayingScreen(
 
                 // Repeat
                 IconButton(onClick = { /* TODO: repeat mode */ }) {
-                    Icon(
-                        Icons.Default.Repeat,
-                        contentDescription = "Repeat",
-                        tint = Color.White.copy(alpha = 0.4f),
-                        modifier = Modifier.size(26.dp),
-                    )
-                }
+                        Text("🔁", color = Color.White.copy(alpha = 0.4f), fontSize = 18.sp)
+                    }
             }
 
             Spacer(Modifier.height(8.dp))

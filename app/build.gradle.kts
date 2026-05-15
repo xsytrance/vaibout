@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
+    id("androidx.room")
 }
 
 android {
@@ -44,6 +45,10 @@ android {
         compose = true
     }
 
+    room {
+        schemaDirectory("$projectDir/schemas")
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -75,6 +80,12 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
+
+    // Palette for dynamic colors from album art
+    implementation("androidx.palette:palette-ktx:1.0.0")
+
+    // Lifecycle service for foreground service
+    implementation("androidx.lifecycle:lifecycle-service:2.8.6")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

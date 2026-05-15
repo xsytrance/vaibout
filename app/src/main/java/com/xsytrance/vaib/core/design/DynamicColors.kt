@@ -59,14 +59,14 @@ object DynamicColors {
                 ?: VaibColors.VioletGlow
 
             val bg = darkVibrant?.rgb?.let { Color(it) }
-                ?: dominant?.rgb?.let { darken(it, 0.7f) }
+                ?: dominant?.rgb?.let { darken(it, 0.7f).let { c -> Color(c) } }
                 ?: VaibColors.DeepBackground
 
-            val surfaceColor = dominant?.rgb?.let { lighten(it, 0.15f) }
+            val surfaceColor = dominant?.rgb?.let { lighten(it, 0.15f).let { c -> Color(c) } }
                 ?: VaibColors.Surface
 
-            val onPrimary = if (dominant?.bodyTextColor != 0) Color(dominant.bodyTextColor)
-            else Color.White
+            val onPrimary = dominant?.bodyTextColor?.let { if (it != 0) Color(it) else null }
+                ?: Color.White
 
             ExtractedColors(
                 primary = primary,

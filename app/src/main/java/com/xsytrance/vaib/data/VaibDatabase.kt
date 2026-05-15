@@ -33,10 +33,6 @@ import com.xsytrance.vaib.data.entities.VaibEntity
     ],
     version = 6,
     exportSchema = true,
-    autoMigrations = [
-        AutoMigration(from = 4, to = 5),
-        AutoMigration(from = 5, to = 6),
-    ],
 )
 abstract class VaibDatabase : RoomDatabase() {
 

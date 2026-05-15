@@ -2,12 +2,17 @@ package com.xsytrance.vaib.ui
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -35,6 +40,7 @@ import com.xsytrance.vaib.core.design.StationTheme
 import com.xsytrance.vaib.core.design.VaibAtmosphere
 import com.xsytrance.vaib.core.design.VaibColors
 import kotlin.math.PI
+import kotlin.math.sin
 
 @Composable
 fun StationsScreen(
@@ -69,7 +75,7 @@ fun StationsScreen(
             ) {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.Default.ArrowBack,
+                        Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
                         tint = Color.White.copy(alpha = 0.7f),
                         modifier = Modifier.size(24.dp),
@@ -496,18 +502,18 @@ private fun AddStationDialog(
                 ) {
                     StationTheme.entries.forEachIndexed { index, theme ->
                         val isSelected = selectedTheme == index
-                        val borderColor = if (isSelected) theme.primaryColor else VaibColors.TextSecondary.copy(alpha = 0.2f)
+                        val borderColor = if (isSelected) theme.primary else VaibColors.TextSecondary.copy(alpha = 0.2f)
 
                         Column(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) theme.primaryColor.copy(alpha = 0.15f) else VaibColors.DeepBackground)
+                                .background(if (isSelected) theme.primary.copy(alpha = 0.15f) else VaibColors.DeepBackground)
                                 .border(1.dp, borderColor, RoundedCornerShape(10.dp))
                                 .clickable { selectedTheme = index }
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Text("⬤", fontSize = 12.sp, color = theme.primaryColor)
+                            Text("⬤", fontSize = 12.sp, color = theme.primary)
                             Spacer(Modifier.height(2.dp))
                             Text(
                                 theme.label,
