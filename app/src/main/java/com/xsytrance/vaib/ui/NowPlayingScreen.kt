@@ -1,6 +1,5 @@
 package com.xsytrance.vaib.ui
 
-import android.net.Uri
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,12 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,13 +22,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xsytrance.vaib.MainViewModel
 import com.xsytrance.vaib.audio.EqPreset
-import com.xsytrance.vaib.core.design.MotionTokens
 import com.xsytrance.vaib.core.design.StationTheme
 import com.xsytrance.vaib.core.design.VaibAtmosphere
 import com.xsytrance.vaib.core.design.VaibColors
-import kotlin.math.PI
-import kotlin.math.abs
-import kotlin.math.sin
+import com.xsytrance.vaib.visualizer.VisualizerStyle
+import com.xsytrance.vaib.visualizer.VisualizerSurface
+import com.xsytrance.vaib.data.entities.VisualizerStyleInfo
+import com.xsytrance.vaib.data.entities.VISUALIZER_STYLES
 
 @Composable
 fun NowPlayingScreen(
@@ -51,6 +46,8 @@ fun NowPlayingScreen(
 
     val atmosphere = StationTheme.NEON_CYAN.toAtmosphere()
 
+    // ── Visualizer state ──────────────────────────────────
+    var selectedVisualizerStyle by remember { mutableStateOf(VisualizerStyle.NEBULA) }
     var showEqPanel by remember { mutableStateOf(false) }
     var showSpeedPicker by remember { mutableStateOf(false) }
 
@@ -70,10 +67,17 @@ fun NowPlayingScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color.Black),
     ) {
-        // ── Animated background ──────────────────────────────
-        NowPlayingBackground(atmosphere = atmosphere, energy = audioEnergy)
+        // ── Full-screen live visualizer background ──────────
+        VisualizerSurface(
+            modifier = Modifier.fillMaxSize(),
+            style = selectedVisualizerStyle,
+            energy = audioEnergy,
+            beat = 0.5f,  // placeholder — real beat from analyzer
+            primaryColor = atmosphere.primaryColor,
+            secondaryColor = atmosphere.secondaryColor,
+        )
 
         Column(
             modifier = Modifier
@@ -90,44 +94,107 @@ fun NowPlayingScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = { onBack() }) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.4f)),
+                ) {
                     Icon(
                         Icons.Default.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White.copy(alpha = 0.7f),
-                        modifier = Modifier.size(24.dp),
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
+
                 Text(
                     "vAIb out!",
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
-                IconButton(onClick = { showEqPanel = !showEqPanel }) {
-                    Icon(
-                        Icons.Default.Equalizer,
-                        contentDescription = "EQ",
-                        tint = if (currentEqPreset != EqPreset.FLAT)
-                            atmosphere.primaryColor
-                        else Color.White.copy(alpha = 0.5f),
-                        modifier = Modifier.size(22.dp),
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Visualizer style chips
+                    VisualizerStyleChip(
+                        styleInfo = VISUALIZER_STYLES[0],
+                        isSelected = selectedVisualizerStyle == VISUALIZER_STYLES[0].style,
+                        onClick = { selectedVisualizerStyle = VISUALIZER_STYLES[0].style },
                     )
+                    VisualizerStyleChip(
+                        styleInfo = VISUALIZER_STYLES[1],
+                        isSelected = selectedVisualizerStyle == VISUALIZER_STYLES[1].style,
+                        onClick = { selectedVisualizerStyle = VISUALIZER_STYLES[1].style },
+                    )
+                    VisualizerStyleChip(
+                        styleInfo = VISUALIZER_STYLES[2],
+                        isSelected = selectedVisualizerStyle == VISUALIZER_STYLES[2].style,
+                        onClick = { selectedVisualizerStyle = VISUALIZER_STYLES[2].style },
+                    )
+
+                    IconButton(onClick = { showEqPanel = !showEqPanel }) {
+                        Icon(
+                            Icons.Default.Equalizer,
+                            contentDescription = "EQ",
+                            tint = if (currentEqPreset != EqPreset.FLAT)
+                                atmosphere.primaryColor
+                            else Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 }
             }
 
             Spacer(Modifier.height(24.dp))
 
-            // ── Album art / visualizer area ───────────────────
-            NowPlayingArtwork(
-                isPlaying = isPlaying,
-                atmosphere = atmosphere,
-                energy = audioEnergy,
+            // ── Album art placeholder ───────────────────────────
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
                     .padding(vertical = 24.dp),
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                // Pulsing album art placeholder
+                val infiniteTransition = rememberInfiniteTransition(label = "artwork")
+                val scale by infiniteTransition.animateFloat(
+                    initialValue = 0.95f,
+                    targetValue = 1.05f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(3000, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse,
+                    ),
+                    label = "artworkScale",
+                )
+                Box(
+                    modifier = Modifier
+                        .size(200.dp * scale)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    atmosphere.primaryColor.copy(alpha = 0.15f),
+                                    atmosphere.secondaryColor.copy(alpha = 0.05f),
+                                    Color.Transparent,
+                                ),
+                            ),
+                        )
+                        .border(
+                            width = 2.dp,
+                            color = atmosphere.primaryColor.copy(alpha = 0.3f),
+                            shape = CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "♪",
+                        fontSize = 48.sp,
+                        color = atmosphere.primaryColor.copy(alpha = 0.6f),
+                    )
+                }
+            }
 
             Spacer(Modifier.height(8.dp))
 
@@ -158,7 +225,6 @@ fun NowPlayingScreen(
                         fontSize = 11.sp,
                         modifier = Modifier.width(40.dp),
                     )
-                    // Custom seek bar
                     Spacer(Modifier.weight(1f))
                     Text(
                         formatMs(durationMs),
@@ -241,7 +307,7 @@ fun NowPlayingScreen(
                 // Speed button
                 IconButton(onClick = { showSpeedPicker = !showSpeedPicker }) {
                     Text(
-                        text = "${"%.0f".format(audioPlayer.playbackSpeed)}x",
+                        text = "${"%.0f".format(viewModel.audioPlayer.playbackSpeed)}x",
                         color = atmosphere.primaryColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -279,130 +345,40 @@ fun NowPlayingScreen(
     }
 }
 
-@Composable
-private fun NowPlayingBackground(atmosphere: VaibAtmosphere, energy: Float) {
-    val transition = rememberInfiniteTransition(label = "npBg")
-    val phase by transition.animateFloat(
-        0f, 1f,
-        infiniteRepeatable(tween(20_000, easing = LinearEasing), RepeatMode.Restart),
-        label = "npBgPhase",
-    )
-
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        // Radial gradient from center
-        drawRect(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    atmosphere.primaryColor.copy(alpha = 0.12f + energy * 0.08f),
-                    atmosphere.secondaryColor.copy(alpha = 0.06f + energy * 0.04f),
-                    Color.Transparent,
-                ),
-                center = Offset(size.width / 2, size.height / 2),
-                radius = size.width * 0.5f,
-            ),
-        )
-
-        // Flowing wave lines
-        val twoPi = (2.0 * PI).toFloat()
-        val baseY = size.height * 0.6f
-        val amp = size.height * (0.04f + energy * 0.03f)
-        val path = Path()
-        for (i in 0..80) {
-            val x = i.toFloat() / 80f * size.width
-            val y = baseY + sin(x / size.width * twoPi * 1.5f + phase * twoPi) * amp
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        drawPath(
-            path,
-            atmosphere.primaryColor.copy(alpha = 0.08f),
-            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round),
-        )
-    }
-}
+// ── Mini visualizer style chip ──────────────────────────────────────
 
 @Composable
-private fun NowPlayingArtwork(
-    isPlaying: Boolean,
-    atmosphere: VaibAtmosphere,
-    energy: Float,
-    modifier: Modifier = Modifier,
+private fun VisualizerStyleChip(
+    styleInfo: VisualizerStyleInfo,
+    isSelected: Boolean,
+    onClick: () -> Unit,
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp)),
-        contentAlignment = Alignment.Center,
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(12.dp)),
+        color = if (isSelected)
+            Color.White.copy(alpha = 0.15f)
+        else
+            Color.White.copy(alpha = 0.04f),
+        border = if (isSelected)
+            BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+        else null,
     ) {
-        // Animated gradient background
-        val transition = rememberInfiniteTransition(label = "artwork")
-        val phase by transition.animateFloat(
-            0f, 1f,
-            infiniteRepeatable(tween(12_000, easing = LinearEasing), RepeatMode.Restart),
-            label = "artPhase",
-        )
-
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            // Three color blobs that slowly morph
-            val colors = listOf(
-                atmosphere.primaryColor.copy(alpha = 0.15f + energy * 0.1f),
-                atmosphere.secondaryColor.copy(alpha = 0.10f + energy * 0.06f),
-                Color.Transparent,
-            )
-            val cx = size.width * (0.3f + 0.1f * sin(phase * twoPi()))
-            val cy = size.height * (0.4f + 0.1f * sin(phase * twoPi() + 2f))
-            val radius = size.width * (0.35f + energy * 0.1f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(colors[0], Color.Transparent),
-                    center = Offset(cx, cy),
-                    radius = radius,
-                ),
-            )
-        }
-
-        // Vinyl-style rotating ring when playing
-        if (isPlaying) {
-            val spin by transition.animateFloat(
-                0f, 360f,
-                infiniteRepeatable(tween(8_000, easing = LinearEasing)),
-                label = "vinylSpin",
-            )
-            Canvas(modifier = Modifier.size(180.dp).align(Alignment.Center)) {
-                drawArc(
-                    color = Color.White.copy(alpha = 0.06f),
-                    startAngle = 0f,
-                    sweepAngle = 300f,
-                    useCenter = false,
-                    topLeft = Offset(10f, 10f),
-                    size = androidx.compose.ui.geometry.Size(160f, 160f),
-                    style = Stroke(width = 1.5f),
-                )
-            }
-        }
-
-        // Pause/play icon overlay
-        val iconAlpha by animateFloatAsState(
-            targetValue = if (isPlaying) 0f else 0.7f,
-            animationSpec = tween(300),
-            label = "playIconAlpha",
-        )
-        if (!isPlaying) {
-            Icon(
-                Icons.Default.PlayArrow,
-                contentDescription = "Play",
-                tint = Color.White.copy(alpha = iconAlpha),
-                modifier = Modifier.size(48.dp),
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            Text(
+                text = styleInfo.icon,
+                fontSize = 16.sp,
             )
         }
     }
 }
 
-private fun twoPi() = (2.0 * PI).toFloat()
-
-private fun formatMs(ms: Long): String {
-    val s = (ms / 1000).coerceAtLeast(0)
-    return "%d:%02d".format(s / 60, s % 60)
-}
+// ── EQ Panel ────────────────────────────────────────────────────────
 
 @Composable
 private fun EqPanel(
@@ -411,73 +387,53 @@ private fun EqPanel(
     onDismiss: () -> Unit,
     atmosphere: VaibAtmosphere,
 ) {
-    Surface(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp)),
-        color = VaibColors.SurfaceVariant,
-        border = androidx.compose.foundation.BorderStroke(
-            0.5f, Color.White.copy(alpha = 0.08f)
-        ),
+            .clip(RoundedCornerShape(16.dp))
+            .background(VaibColors.DeepBackground)
+            .padding(16.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "EQUALIZER",
-                    color = VaibColors.TextSecondary,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 1.5.sp,
-                )
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Close EQ",
-                        tint = VaibColors.TextTertiary,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "EQ Preset",
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            TextButton(onClick = onDismiss) {
+                Text("Done", color = atmosphere.primaryColor, fontSize = 12.sp)
             }
-
-            Spacer(Modifier.height(12.dp))
-
-            // Preset chips
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                EqPreset.entries.forEach { preset ->
-                    FilterChip(
-                        selected = currentPreset == preset,
-                        onClick = { onPresetSelected(preset) },
-                        label = {
-                            Text(
-                                preset.label,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = atmosphere.primaryColor,
-                            selectedLabelColor = Color.Black,
-                            containerColor = VaibColors.DeepBackground,
-                            labelColor = VaibColors.TextSecondary,
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = currentPreset == preset,
-                            borderColor = Color.Transparent,
-                            selectedBorderColor = Color.Transparent,
-                        ),
-                    )
-                }
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            EqPreset.entries.forEach { preset ->
+                FilterChip(
+                    selected = currentPreset == preset,
+                    onClick = { onPresetSelected(preset) },
+                    label = { Text(preset.label, fontSize = 11.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = atmosphere.primaryColor,
+                        selectedLabelColor = Color.Black,
+                        containerColor = Color.White.copy(0.08f),
+                        labelColor = Color.White.copy(0.75f),
+                    ),
+                )
             }
         }
     }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+private fun formatMs(ms: Long): String {
+    val s = (ms / 1000).coerceAtLeast(0)
+    return "%d:%02d".format(s / 60, s % 60)
 }

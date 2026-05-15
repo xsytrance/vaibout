@@ -1,8 +1,6 @@
 package com.xsytrance.vaib.ui
 
 import android.net.Uri
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -60,9 +58,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -72,6 +67,7 @@ import com.xsytrance.vaib.audio.EqPreset
 import com.xsytrance.vaib.core.design.VaibAtmosphere
 import com.xsytrance.vaib.core.design.VaibColors
 import com.xsytrance.vaib.data.entities.VaibEntity
+import com.xsytrance.vaib.visualizer.VisualizerStyle
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.sin
@@ -85,15 +81,14 @@ private fun formatMs(ms: Long): String {
 
 // ── Compact card accent gradients (one per saved vAIb slot mod 5) ─────
 private val CARD_ACCENTS = listOf(
-    listOf(Color(0xFF041420), Color(0xFF0E0524)),  // teal → violet
-    listOf(Color(0xFF051A0E), Color(0xFF050F20)),  // forest → navy
-    listOf(Color(0xFF18040E), Color(0xFF070420)),  // crimson → indigo
-    listOf(Color(0xFF0E1204), Color(0xFF04121A)),  // olive → teal
-    listOf(Color(0xFF160A04), Color(0xFF06041A)),  // ember → midnight
+    listOf(Color(0xFF041420), Color(0xFF0E0524)),
+    listOf(Color(0xFF051A0E), Color(0xFF050F20)),
+    listOf(Color(0xFF18040E), Color(0xFF070420)),
+    listOf(Color(0xFF0E1204), Color(0xFF04121A)),
+    listOf(Color(0xFF160A04), Color(0xFF06041A)),
 )
 
 // ── Ambient background note data ──────────────────────────────────────
-
 private data class AmbientNote(
     val glyphIndex: Int,
     val baseX: Float,
@@ -136,6 +131,7 @@ fun HomeScreen(
     val savedVaibs         by viewModel.savedVaibs.collectAsState()
     val currentEqPreset    by viewModel.currentEqPreset.collectAsState()
     val currentMood        by viewModel.currentMood.collectAsState()
+    val vizStyle           by viewModel.selectedVisualizerStyle.collectAsState()
     val hasTrack = trackUri != null
 
     val atmosphere = VaibAtmosphere.Default
@@ -179,20 +175,22 @@ fun HomeScreen(
                 Spacer(Modifier.height(20.dp))
             }
 
-            // ── Now Playing hero card ─────────────────────────────────
+            // ── Now Playing hero card (live visualizer) ───────────────
             item {
                 NowPlayingCard(
-                    trackName        = trackName,
-                    trackUri         = trackUri,
-                    isPlaying        = isPlaying,
-                    isBuffering      = isBuffering,
-                    playbackFraction = playbackFraction,
-                    currentPositionMs = currentPositionMs,
-                    durationMs       = durationMs,
-                    hasTrack         = hasTrack,
-                    currentEqPreset  = currentEqPreset,
-                    currentMood      = currentMood,
-                    atmosphere       = atmosphere,
+                    trackName               = trackName,
+                    trackUri                = trackUri,
+                    isPlaying               = isPlaying,
+                    isBuffering             = isBuffering,
+                    playbackFraction        = playbackFraction,
+                    currentPositionMs       = currentPositionMs,
+                    durationMs              = durationMs,
+                    hasTrack                = hasTrack,
+                    currentEqPreset         = currentEqPreset,
+                    currentMood             = currentMood,
+                    atmosphere              = atmosphere,
+                    selectedVisualizerStyle = vizStyle,
+                    onVisualizerStyleChange = viewModel::setVisualizerStyle,
                 )
                 Spacer(Modifier.height(14.dp))
             }
@@ -473,7 +471,7 @@ private fun AmbientBackground(atmosphere: VaibAtmosphere, modifier: Modifier = M
         val w = maxWidth
         val h = maxHeight
         AMBIENT_NOTE_DATA.forEach { note ->
-            val glyph = glyphs.getOrElse(note.glyphIndex % glyphs.size) { "♪" }
+            val glyph = glyphs.getOrElse(note.glyphIndex % glyphs.size) { "♫" }
             val swayX = sin(phase * note.swayFreq * twoPi + note.phase) * note.swayAmp
             val xDp   = w * (note.baseX + swayX).coerceIn(0.02f, 0.96f)
             val yDp   = h * ((note.baseY + phase * note.speed) % 1.05f)
@@ -484,315 +482,6 @@ private fun AmbientBackground(atmosphere: VaibAtmosphere, modifier: Modifier = M
                 fontSize = 16.sp,
                 modifier = Modifier.absoluteOffset(x = xDp, y = yDp),
             )
-        }
-    }
-}
-
-// ── Now Playing hero card ─────────────────────────────────────────────
-
-@Composable
-private fun NowPlayingCard(
-    trackName: String?,
-    trackUri: Uri?,
-    isPlaying: Boolean,
-    isBuffering: Boolean,
-    playbackFraction: Float,
-    currentPositionMs: Long,
-    durationMs: Long,
-    hasTrack: Boolean,
-    currentEqPreset: EqPreset,
-    currentMood: String,
-    atmosphere: VaibAtmosphere,
-) {
-    val subtitle = when {
-        currentMood.isNotEmpty() -> currentMood
-        trackUri?.scheme == "https" || trackUri?.scheme == "http" -> "Internet Archive"
-        hasTrack -> "Local file"
-        else -> ""
-    }
-    val borderColor = if (isPlaying)
-        atmosphere.primaryColor.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.05f)
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
-            .border(BorderStroke(0.6.dp, borderColor), RoundedCornerShape(22.dp))
-            .background(VaibColors.DeepBackground),
-    ) {
-        // Artwork area
-        ArtworkArea(
-            isPlaying  = isPlaying,
-            hasTrack   = hasTrack,
-            atmosphere = atmosphere,
-            modifier   = Modifier
-                .fillMaxWidth()
-                .height(190.dp)
-                .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)),
-        )
-
-        // Content below artwork
-        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
-            // Track name
-            Text(
-                text       = trackName ?: "Nothing playing",
-                color      = if (hasTrack) Color.White else VaibColors.TextSoft.copy(0.45f),
-                fontSize   = if (hasTrack) 20.sp else 16.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines   = 1,
-                overflow   = TextOverflow.Ellipsis,
-                letterSpacing = (-0.4).sp,
-            )
-
-            // Subtitle
-            if (subtitle.isNotEmpty()) {
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    text      = subtitle,
-                    color     = atmosphere.primaryColor.copy(alpha = 0.75f),
-                    fontSize  = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-
-            // Attribute chips (EQ + mood shown as chips only when both present or distinct)
-            val showEqChip   = currentEqPreset != EqPreset.FLAT
-            val showMoodChip = currentMood.isNotEmpty()
-            if (showEqChip || showMoodChip) {
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (showEqChip) {
-                        AtmosphereChip(
-                            label = "${currentEqPreset.label} EQ",
-                            color = atmosphere.secondaryColor,
-                        )
-                    }
-                    if (showMoodChip) {
-                        AtmosphereChip(
-                            label = currentMood,
-                            color = atmosphere.primaryColor,
-                        )
-                    }
-                }
-            }
-
-            // Progress row
-            if (hasTrack) {
-                Spacer(Modifier.height(12.dp))
-                if (isBuffering) {
-                    LinearProgressIndicator(
-                        modifier   = Modifier.fillMaxWidth().height(2.dp),
-                        color      = atmosphere.primaryColor.copy(0.55f),
-                        trackColor = Color.White.copy(0.07f),
-                    )
-                } else {
-                    LinearProgressIndicator(
-                        progress   = { playbackFraction },
-                        modifier   = Modifier.fillMaxWidth().height(2.dp),
-                        color      = atmosphere.primaryColor,
-                        trackColor = Color.White.copy(0.07f),
-                        strokeCap  = StrokeCap.Round,
-                    )
-                }
-                if (durationMs > 0) {
-                    Spacer(Modifier.height(5.dp))
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(formatMs(currentPositionMs), color = VaibColors.TextSoft.copy(0.55f), fontSize = 10.sp)
-                        Text(formatMs(durationMs),        color = VaibColors.TextSoft.copy(0.55f), fontSize = 10.sp)
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ── Artwork area — animated gradient + wave lines + bar viz overlay ───
-
-@Composable
-private fun ArtworkArea(
-    isPlaying: Boolean,
-    hasTrack: Boolean,
-    atmosphere: VaibAtmosphere,
-    modifier: Modifier = Modifier,
-) {
-    Box(modifier = modifier) {
-        // Background gradient + animated wave lines
-        ArtworkCanvas(atmosphere = atmosphere, modifier = Modifier.fillMaxSize())
-
-        // Bar visualizer overlay at bottom of artwork
-        BarVisualizerPreview(
-            isPlaying  = isPlaying,
-            atmosphere = atmosphere,
-            modifier   = Modifier
-                .fillMaxWidth()
-                .height(66.dp)
-                .align(Alignment.BottomCenter),
-        )
-
-        // Waveform level indicator top-right
-        WaveformIndicator(
-            isActive = isPlaying || hasTrack,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(10.dp),
-        )
-    }
-}
-
-@Composable
-private fun ArtworkCanvas(atmosphere: VaibAtmosphere, modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "artworkWaves")
-    val phase by transition.animateFloat(
-        0f, 1f,
-        infiniteRepeatable(tween(12_000, easing = LinearEasing), RepeatMode.Restart),
-        label = "artPhase",
-    )
-    val twoPi = (2.0 * PI).toFloat()
-    Canvas(modifier = modifier) {
-        // Dark gradient background
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    Color(0xFF040E12),
-                    Color(0xFF0B0620),
-                    Color(0xFF03030A),
-                ),
-                startY = 0f, endY = size.height,
-            ),
-        )
-        // Three soft flowing wave lines
-        val waveColors = listOf(atmosphere.primaryColor, atmosphere.secondaryColor, atmosphere.primaryColor)
-        val waveAlphas = listOf(0.07f, 0.09f, 0.06f)
-        val baseYs     = listOf(0.35f, 0.55f, 0.70f)
-        val amplitudes = listOf(0.08f, 0.10f, 0.06f)
-        val freqs      = listOf(1.4f, 1.0f, 1.8f)
-
-        waveColors.forEachIndexed { i, color ->
-            val wavePhase = phase * twoPi + i * twoPi / 3f
-            val baseY     = size.height * baseYs[i]
-            val amp       = size.height * amplitudes[i]
-            val path      = Path()
-            var first     = true
-            for (step in 0..80) {
-                val x = step.toFloat() / 80f * size.width
-                val y = baseY + sin(x / size.width * twoPi * freqs[i] + wavePhase) * amp
-                if (first) { path.moveTo(x, y); first = false } else path.lineTo(x, y)
-            }
-            drawPath(path, color.copy(alpha = waveAlphas[i]), style = Stroke(width = 1.8f))
-        }
-    }
-}
-
-@Composable
-private fun WaveformIndicator(isActive: Boolean, modifier: Modifier = Modifier) {
-    val alpha = if (isActive) 0.50f else 0.20f
-    Canvas(modifier = modifier.size(20.dp)) {
-        val bars = listOf(0.45f, 0.90f, 0.65f, 0.85f, 0.50f)
-        val bw   = size.width / (bars.size * 2 - 1).toFloat()
-        bars.forEachIndexed { i, h ->
-            val barH = size.height * h
-            drawRect(
-                Color.White.copy(alpha),
-                topLeft = Offset(i * bw * 2f, size.height - barH),
-                size    = Size(bw, barH),
-            )
-        }
-    }
-}
-
-// ── Standalone Visualizer card ────────────────────────────────────────
-
-@Composable
-private fun VisualizerCard(isPlaying: Boolean, atmosphere: VaibAtmosphere) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(VaibColors.DeepBackground)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-    ) {
-        Text(
-            "VISUALIZER",
-            color         = VaibColors.TextSoft.copy(0.45f),
-            fontSize      = 9.sp,
-            fontWeight    = FontWeight.SemiBold,
-            letterSpacing = 2.sp,
-        )
-        Spacer(Modifier.height(10.dp))
-        MountainBarViz(
-            isPlaying  = isPlaying,
-            atmosphere = atmosphere,
-            modifier   = Modifier
-                .fillMaxWidth()
-                .height(80.dp),
-        )
-    }
-}
-
-// Mountain-envelope bar visualizer for the standalone card
-private const val VIZ_BAR_COUNT = 28
-
-@Composable
-private fun MountainBarViz(isPlaying: Boolean, atmosphere: VaibAtmosphere, modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "mountainViz")
-    val phase by transition.animateFloat(
-        0f, 1f,
-        infiniteRepeatable(tween(3_600, easing = LinearEasing), RepeatMode.Restart),
-        label = "mvPhase",
-    )
-    val twoPi      = (2.0 * PI).toFloat()
-    val multiplier = if (isPlaying) 1f else 0.18f
-
-    Canvas(modifier = modifier) {
-        val barW = size.width / VIZ_BAR_COUNT
-        val maxH = size.height
-        for (i in 0 until VIZ_BAR_COUNT) {
-            val t          = i.toFloat() / (VIZ_BAR_COUNT - 1)
-            val mountain   = sin(t * PI.toFloat())              // 0→1→0 envelope
-            val speed      = 0.50f + (i % 5) * 0.22f + (i % 3) * 0.11f
-            val rawPhase   = i.toFloat() / VIZ_BAR_COUNT
-            val raw        = abs(sin((phase + rawPhase) * speed * twoPi))
-            val h          = (maxH * multiplier * (mountain * 0.65f + raw * 0.35f)).coerceAtLeast(2f)
-            val color      = lerp(atmosphere.primaryColor, atmosphere.secondaryColor, t)
-                .copy(alpha = 0.45f + raw * 0.30f)
-            drawRect(
-                color   = color,
-                topLeft = Offset(i * barW + 1.5f, maxH - h),
-                size    = Size((barW - 3f).coerceAtLeast(1f), h),
-            )
-        }
-    }
-}
-
-// Inline compact bar viz (for artwork overlay)
-private const val BAR_COUNT = 20
-
-@Composable
-private fun BarVisualizerPreview(isPlaying: Boolean, atmosphere: VaibAtmosphere, modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "barViz")
-    val phase by transition.animateFloat(
-        0f, 1f,
-        infiniteRepeatable(tween(3_400, easing = LinearEasing), RepeatMode.Restart),
-        label = "barPhase",
-    )
-    val twoPi      = (2.0 * PI).toFloat()
-    val multiplier = if (isPlaying) 1f else 0.12f
-
-    Canvas(modifier = modifier) {
-        val barW = size.width / BAR_COUNT
-        val maxH = size.height
-        for (i in 0 until BAR_COUNT) {
-            val speed  = 0.55f + (i % 5) * 0.20f + (i % 3) * 0.12f
-            val offset = i.toFloat() / BAR_COUNT
-            val raw    = abs(sin((phase + offset) * speed * twoPi))
-            val h      = (maxH * multiplier * (0.10f + raw * 0.90f)).coerceAtLeast(1.5f)
-            val t      = i.toFloat() / (BAR_COUNT - 1).coerceAtLeast(1)
-            val color  = lerp(atmosphere.primaryColor, atmosphere.secondaryColor, t)
-                .copy(alpha = 0.55f + raw * 0.30f)
-            drawRect(color, Offset(i * barW + 1f, maxH - h), Size((barW - 2f).coerceAtLeast(1f), h))
         }
     }
 }
@@ -812,12 +501,9 @@ private fun TransportControls(
         verticalAlignment     = Alignment.CenterVertically,
     ) {
         TransportSideButton { SkipPrevIcon(Modifier.size(22.dp)) }
-
         Spacer(Modifier.width(30.dp))
-
-        // Center play/pause — prominent cyan circle
         val bgColor   = if (hasTrack) atmosphere.primaryColor else Color.White.copy(0.07f)
-        val iconColor = if (hasTrack) Color.Black              else Color.White.copy(0.18f)
+        val iconColor = if (hasTrack) Color.Black else Color.White.copy(0.18f)
         Box(
             modifier = Modifier
                 .size(68.dp)
@@ -829,23 +515,12 @@ private fun TransportControls(
             if (isPlaying) PauseIcon(Modifier.size(26.dp), iconColor)
             else           PlayIcon (Modifier.size(26.dp), iconColor)
         }
-
         Spacer(Modifier.width(30.dp))
-
         TransportSideButton { SkipNextIcon(Modifier.size(22.dp)) }
     }
 }
 
-@Composable
-private fun TransportSideButton(icon: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(52.dp)
-            .clip(CircleShape)
-            .background(Color.White.copy(0.04f)),
-        contentAlignment = Alignment.Center,
-    ) { icon() }
-}
+// ── Icon helpers ──────────────────────────────────────────────────────
 
 @Composable
 private fun PlayIcon(modifier: Modifier = Modifier, color: Color = Color.Black) {
@@ -902,50 +577,24 @@ private fun SkipNextIcon(modifier: Modifier = Modifier) {
     }
 }
 
-// ── vAIb out! hero button ─────────────────────────────────────────────
-
-@Composable
-private fun VaibOutButton(hasTrack: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(58.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(
-                if (hasTrack) Color.White
-                else Color.White.copy(alpha = 0.06f)
-            )
-            .clickable(enabled = hasTrack, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            "vAIb out!",
-            color      = if (hasTrack) Color.Black else Color.White.copy(0.18f),
-            fontSize   = 18.sp,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 0.2.sp,
-        )
-    }
-}
-
-// ── Atmosphere chip (used inside NowPlayingCard) ───────────────────────
+// ── Atmosphere chip ───────────────────────────────────────────────────
 
 @Composable
 private fun AtmosphereChip(label: String, color: Color) {
     Text(
-        text          = label.uppercase(),
-        color         = color,
-        fontSize      = 9.sp,
-        fontWeight    = FontWeight.SemiBold,
+        text       = label.uppercase(),
+        color      = color,
+        fontSize   = 9.sp,
+        fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.8.sp,
-        modifier      = Modifier
+        modifier   = Modifier
             .clip(RoundedCornerShape(20.dp))
             .border(BorderStroke(1.dp, color.copy(alpha = 0.40f)), RoundedCornerShape(20.dp))
             .padding(horizontal = 10.dp, vertical = 4.dp),
     )
 }
 
-// ── Compact vAIb cards (horizontal row) ──────────────────────────────
+// ── Compact vAIb cards ───────────────────────────────────────────────
 
 @Composable
 private fun CompactVaibCard(
@@ -967,24 +616,19 @@ private fun CompactVaibCard(
             .clickable(onClick = onClick),
     ) {
         Column {
-            // Visual / artwork area
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(76.dp)
                     .background(
-                        Brush.verticalGradient(
-                            colors = accentColors,
-                        )
+                        Brush.verticalGradient(colors = accentColors),
                     ),
             ) {
-                // Single soft arc wave on the card
                 CompactCardWave(
                     accentColor = accentColors.first(),
                     modifier    = Modifier.fillMaxSize(),
                 )
             }
-            // Label area
             Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
                 Text(
                     vaib.vaibName,
@@ -994,112 +638,134 @@ private fun CompactVaibCard(
                     maxLines   = 1,
                     overflow   = TextOverflow.Ellipsis,
                 )
-                if (eqLabel != null) {
+                Spacer(Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    eqLabel?.let {
+                        Text(
+                            it,
+                            color     = VaibColors.CyanPulse.copy(alpha = 0.7f),
+                            fontSize  = 9.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
                     Text(
-                        eqLabel,
-                        color    = VaibColors.VioletGlow.copy(0.62f),
-                        fontSize = 9.sp,
+                        vaib.mood.ifEmpty { "—" },
+                        color     = VaibColors.TextSoft.copy(0.5f),
+                        fontSize  = 9.sp,
                     )
                 }
             }
         }
 
-        // Subtle delete button top-right
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .size(28.dp)
-                .clickable(onClick = onDeleteRequest),
+                .padding(4.dp)
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(Color.Transparent)
+                .clickable { onDeleteRequest() },
             contentAlignment = Alignment.Center,
         ) {
-            Text("✕", color = Color.White.copy(0.28f), fontSize = 10.sp)
+            Text("×", color = Color.White.copy(0.35f), fontSize = 14.sp)
         }
     }
 }
+
+// ── Compact card waveform ────────────────────────────────────────────
 
 @Composable
 private fun CompactCardWave(accentColor: Color, modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "compactWave")
+    val phase by transition.animateFloat(
+        0f, 1f,
+        infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Restart),
+        label = "cwPhase",
+    )
+    val twoPi = (2.0 * PI).toFloat()
     Canvas(modifier = modifier) {
-        val path = Path()
-        path.moveTo(0f, size.height * 0.6f)
-        for (step in 0..40) {
-            val x = step / 40f * size.width
-            val y = size.height * 0.6f + sin(x / size.width * (2 * PI).toFloat() * 1.2f) * size.height * 0.18f
-            path.lineTo(x, y)
+        for (i in 0..30) {
+            val x = i.toFloat() / 30f * size.width
+            val h = size.height * (0.15f + 0.35f * abs(sin(x / size.width * twoPi * 1.8f + phase * twoPi)))
+            drawRect(
+                accentColor.copy(alpha = 0.25f + 0.15f * abs(sin(phase * twoPi + i * 0.3f))),
+                topLeft = Offset(x, size.height - h),
+                size = Size(size.width / 32f, h),
+            )
         }
-        path.lineTo(size.width, size.height)
-        path.lineTo(0f, size.height)
-        path.close()
-        drawPath(path, color = Color.White.copy(alpha = 0.06f))
-        // Single line arc
-        val linePath = Path()
-        linePath.moveTo(0f, size.height * 0.55f)
-        for (step in 0..40) {
-            val x = step / 40f * size.width
-            val y = size.height * 0.55f + sin(x / size.width * (2 * PI).toFloat() * 1.0f + 0.8f) * size.height * 0.14f
-            linePath.lineTo(x, y)
-        }
-        drawPath(linePath, accentColor.copy(alpha = 0.0f).let {
-            lerp(Color.White.copy(0.15f), accentColor.copy(0.05f), 0.5f)
-        }, style = Stroke(width = 1.2f))
     }
 }
 
-// ── Shared button styles ──────────────────────────────────────────────
+// ── VaibOut hero button ──────────────────────────────────────────────
 
 @Composable
-internal fun VaibOutlinedButton(
+private fun VaibOutButton(hasTrack: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        enabled = hasTrack,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = VaibColors.CyanPulse,
+            disabledContainerColor = Color.White.copy(alpha = 0.06f),
+            contentColor = Color.Black,
+            disabledContentColor = Color.White.copy(alpha = 0.2f),
+        ),
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp,
+        ),
+    ) {
+        Text(
+            "vAIb  out!",
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 15.sp,
+            letterSpacing = 1.2.sp,
+        )
+    }
+}
+
+// ── VaibOutlinedButton ───────────────────────────────────────────────
+
+@Composable
+private fun VaibOutlinedButton(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     OutlinedButton(
-        onClick  = onClick,
-        modifier = modifier.height(48.dp),
-        shape    = RoundedCornerShape(12.dp),
-        colors   = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-        border   = BorderStroke(1.dp, VaibColors.TextSoft.copy(alpha = 0.28f)),
+        onClick = onClick,
+        modifier = modifier.height(44.dp),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.White.copy(alpha = 0.04f),
+            contentColor = Color.White.copy(alpha = 0.85f),
+        ),
     ) {
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.3.sp)
+        Text(
+            label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.5.sp,
+        )
     }
 }
 
-@Composable
-internal fun VaibSecondaryButton(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Button(
-        onClick   = onClick,
-        modifier  = modifier.height(54.dp),
-        shape     = RoundedCornerShape(12.dp),
-        colors    = ButtonDefaults.buttonColors(
-            containerColor = Color.White.copy(0.07f),
-            contentColor   = Color.White,
-        ),
-        elevation = ButtonDefaults.buttonElevation(0.dp),
-    ) {
-        Text(label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.4.sp)
-    }
-}
+// ── TransportSideButton ──────────────────────────────────────────────
 
 @Composable
-internal fun VaibGlowButton(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Button(
-        onClick   = onClick,
-        modifier  = modifier.height(58.dp),
-        shape     = RoundedCornerShape(14.dp),
-        colors    = ButtonDefaults.buttonColors(
-            containerColor = VaibColors.CyanPulse,
-            contentColor   = Color.Black,
-        ),
-        elevation = ButtonDefaults.buttonElevation(0.dp),
+private fun TransportSideButton(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.06f)),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+        content()
     }
 }

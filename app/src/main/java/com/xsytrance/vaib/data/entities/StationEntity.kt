@@ -28,7 +28,7 @@ data class StationEntity(
     val eqPreset: String = "FLAT",
 
     // Visualizer style — applied when entering dreamscape from this station
-    val visualizerStyle: String = "PULSE",
+    val visualizerStyle: String = "NEBULA",
 
     // Source scope: "LOCAL", "INTERNET_ARCHIVE", or "MIXED"
     val sourceType: String = "MIXED",

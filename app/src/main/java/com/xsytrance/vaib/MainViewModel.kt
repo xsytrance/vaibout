@@ -19,6 +19,7 @@ import com.xsytrance.vaib.discover.InternetArchiveApi
 import com.xsytrance.vaib.repository.MusicRepository
 import com.xsytrance.vaib.service.AudioFocusManager
 import com.xsytrance.vaib.service.PlayerService
+import com.xsytrance.vaib.visualizer.VisualizerStyle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -314,7 +315,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     trackUri        = uri.toString(),
                     trackName       = _trackName.value ?: "Unknown Track",
                     mood            = mood.trim(),
-                    visualizerStyle = "PULSE",
+                    visualizerStyle = VisualizerStyle.NEBULA.name,
                     themeId         = "NEON_CYAN",
                     createdAt       = System.currentTimeMillis(),
                     sourceType      = sourceType,
@@ -341,7 +342,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { vaibDao.delete(vaib) }
     }
 
-    // ── Playback / navigation ─────────────────────────────────
+// ── Visualizer state ────────────────────────────────────────────
+    private val _selectedVisualizerStyle = MutableStateFlow(VisualizerStyle.NEBULA)
+    val selectedVisualizerStyle: StateFlow<VisualizerStyle> = _selectedVisualizerStyle.asStateFlow()
+
+    fun setVisualizerStyle(style: VisualizerStyle) {
+        _selectedVisualizerStyle.value = style
+    }
+
+    // ── Playback / navigation ─────────────────────────────────────────
 
     fun togglePlayPause() {
         if (!audioPlayer.player.isPlaying && !focusManager.requestFocus()) return
