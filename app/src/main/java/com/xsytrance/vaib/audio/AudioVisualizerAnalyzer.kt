@@ -4,105 +4,72 @@ import android.media.audiofx.Visualizer
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.math.pow
 import kotlin.math.sqrt
 
-private const val TAG = "VaibVisualizer"
+private const val TAG       = "VaibVisualizer"
+const val NUM_BANDS         = 32
 
-/**
- * Lightweight wrapper around [Visualizer] that emits two reactive values:
- *  - [energy]    — normalised RMS amplitude (0..1), smoothed at ~10 Hz.
- *  - [beatPulse] — 1f on a detected transient, decaying to 0 within ~400ms.
- *
- * Beat detection: fires when instantaneous RMS rises ≥ 45 % above a slow
- * background EMA (τ ≈ 1.2 s), with a 300 ms debounce to suppress re-triggers.
- *
- * Lifecycle: call [start] after RECORD_AUDIO is granted and ExoPlayer has
- * called prepare() (audioSessionId must be non-zero). Call [stop] on exit.
- */
 class AudioVisualizerAnalyzer {
 
     private var visualizer: Visualizer? = null
 
-    private val _energy    = MutableStateFlow(0f)
-    private val _beatPulse = MutableStateFlow(0f)
+    private val _energy     = MutableStateFlow(0f)
+    private val _beatPulse  = MutableStateFlow(0f)
+    private val _freqBands  = MutableStateFlow(FloatArray(NUM_BANDS))
 
-    val energy:    StateFlow<Float> = _energy
-    val beatPulse: StateFlow<Float> = _beatPulse
+    val energy:    StateFlow<Float>      = _energy
+    val beatPulse: StateFlow<Float>      = _beatPulse
+    val freqBands: StateFlow<FloatArray> = _freqBands
 
-    // Beat detection state — only touched in the Visualizer callback thread.
     private var slowEnergy    = 0f
-    private var beatDebounce  = 0   // countdown in callback ticks (~100 ms each)
-    private var logTickCounter = 0  // throttle periodic logging to ~every 3 s
+    private var beatDebounce  = 0
+    private val smoothedBands = FloatArray(NUM_BANDS)
 
-    /** Returns true if the Visualizer attached successfully. */
     fun start(audioSessionId: Int): Boolean {
-        Log.d(TAG, "start() audioSessionId=$audioSessionId")
         if (audioSessionId == 0) {
-            Log.w(TAG, "start() rejected — audioSessionId is 0 (player not yet prepared)")
+            Log.w(TAG, "start() rejected — audioSessionId is 0")
             return false
         }
         stop()
         return try {
             visualizer = Visualizer(audioSessionId).apply {
-                captureSize = Visualizer.getCaptureSizeRange()[0]
+                captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
                 setDataCaptureListener(
                     object : Visualizer.OnDataCaptureListener {
                         override fun onWaveFormDataCapture(
-                            vis: Visualizer,
-                            waveform: ByteArray,
-                            samplingRate: Int,
+                            vis: Visualizer, waveform: ByteArray, samplingRate: Int,
                         ) {
-                            // Waveform bytes are unsigned 0–255, centred at 128 (silence).
                             var sumSq = 0f
                             for (b in waveform) {
                                 val s = (b.toInt() and 0xFF) - 128f
                                 sumSq += s * s
                             }
                             val rms = sqrt(sumSq / waveform.size) / 128f
-
-                            // Fast-smoothed energy for continuous visual modulation.
-                            _energy.value = (_energy.value * 0.60f + rms * 0.40f)
-                                .coerceIn(0f, 1f)
-
-                            // Slow background EMA (τ ≈ 1.2 s at 10 Hz callbacks).
-                            slowEnergy = slowEnergy * 0.92f + rms * 0.08f
-
-                            // Decay the beat pulse each tick.
-                            _beatPulse.value = (_beatPulse.value * 0.55f)
-                                .coerceAtLeast(0f)
-
-                            // Transient: sharp rise well above background, not silence.
-                            if (beatDebounce <= 0
-                                && rms > 0.05f
-                                && rms > slowEnergy * 1.45f
-                            ) {
+                            _energy.value = (_energy.value * 0.60f + rms * 0.40f).coerceIn(0f, 1f)
+                            slowEnergy    = slowEnergy * 0.92f + rms * 0.08f
+                            _beatPulse.value = (_beatPulse.value * 0.55f).coerceAtLeast(0f)
+                            if (beatDebounce <= 0 && rms > 0.05f && rms > slowEnergy * 1.45f) {
                                 _beatPulse.value = 1f
-                                beatDebounce = 3   // ≈ 300 ms
+                                beatDebounce     = 3
                             } else if (beatDebounce > 0) {
                                 beatDebounce--
-                            }
-
-                            // Periodic diagnostic log (~every 3 s at 10 Hz callbacks).
-                            if (++logTickCounter % 30 == 0) {
-                                Log.d(TAG, "energy=%.3f rms=%.3f beat=%.2f slowEnergy=%.3f waveformSize=${waveform.size}".format(
-                                    _energy.value, rms, _beatPulse.value, slowEnergy
-                                ))
                             }
                         }
 
                         override fun onFftDataCapture(
-                            vis: Visualizer,
-                            fft: ByteArray,
-                            samplingRate: Int,
-                        ) = Unit
+                            vis: Visualizer, fft: ByteArray, samplingRate: Int,
+                        ) {
+                            processFft(fft)
+                        }
                     },
-                    Visualizer.getMaxCaptureRate() / 2,
-                    true,   // waveform
-                    false,  // fft
+                    Visualizer.getMaxCaptureRate(),
+                    waveform = true,
+                    fft      = true,
                 )
                 enabled = true
             }
-            Log.d(TAG, "Visualizer attached successfully to session $audioSessionId")
+            Log.d(TAG, "Visualizer attached to session $audioSessionId")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Visualizer attach failed: ${e.message}")
@@ -111,14 +78,40 @@ class AudioVisualizerAnalyzer {
         }
     }
 
+    private fun processFft(fft: ByteArray) {
+        val n       = fft.size
+        val numBins = n / 2 - 1
+        if (numBins <= 0) return
+        for (band in 0 until NUM_BANDS) {
+            val startBin = numBins.toDouble().pow(band.toDouble() / NUM_BANDS)
+                .toInt().coerceAtLeast(1)
+            val endBin   = numBins.toDouble().pow((band + 1.0) / NUM_BANDS)
+                .toInt().coerceIn(startBin + 1, numBins)
+            var mag   = 0f
+            var count = 0
+            for (bin in startBin until endBin) {
+                val idx = bin * 2
+                if (idx + 1 < n) {
+                    val re = fft[idx].toFloat()
+                    val im = fft[idx + 1].toFloat()
+                    mag  += sqrt(re * re + im * im)
+                    count++
+                }
+            }
+            val raw = if (count > 0) (mag / count / 128f).coerceIn(0f, 1f) else 0f
+            smoothedBands[band] = smoothedBands[band] * 0.65f + raw * 0.35f
+        }
+        _freqBands.value = smoothedBands.copyOf()
+    }
+
     fun stop() {
-        Log.d(TAG, "stop() releasing Visualizer")
         visualizer?.apply { enabled = false; release() }
-        visualizer      = null
-        slowEnergy      = 0f
-        beatDebounce    = 0
-        logTickCounter  = 0
+        visualizer = null
+        slowEnergy = 0f
+        beatDebounce = 0
+        smoothedBands.fill(0f)
         _energy.value    = 0f
         _beatPulse.value = 0f
+        _freqBands.value = FloatArray(NUM_BANDS)
     }
 }

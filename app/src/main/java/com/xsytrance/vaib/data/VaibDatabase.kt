@@ -9,12 +9,13 @@ import com.xsytrance.vaib.data.entities.VaibEntity
 
 @Database(
     entities = [TrackEntity::class, VaibEntity::class],
-    version = 4,
+    version  = 5,
     exportSchema = false,
 )
 abstract class VaibDatabase : RoomDatabase() {
 
     abstract fun vaibDao(): VaibDao
+    abstract fun trackDao(): TrackDao
 
     companion object {
         @Volatile private var instance: VaibDatabase? = null
