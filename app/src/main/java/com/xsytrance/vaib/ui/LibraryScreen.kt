@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.xsytrance.vaib.MainViewModel
 import com.xsytrance.vaib.Screen
 import com.xsytrance.vaib.music.Track
@@ -193,7 +194,13 @@ private fun TrackCard(
     val transition = rememberInfiniteTransition(label = "card_${track.key}")
     val phase by transition.animateFloat(
         0f, 1f,
-        infiniteRepeatable(tween(4_000 + (track.key.hashCode() % 2000).coerceAtLeast(0), LinearEasing), RepeatMode.Restart),
+        infiniteRepeatable(
+            tween(
+                durationMillis = 4_000 + (track.key.hashCode() % 2000).coerceAtLeast(0),
+                easing = LinearEasing,
+            ),
+            RepeatMode.Restart,
+        ),
         label = "cardPhase",
     )
 
@@ -210,25 +217,44 @@ private fun TrackCard(
                 .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
                 .background(Brush.linearGradient(listOf(grad1, grad2))),
         ) {
-            // Animated wave lines on the card art
-            Canvas(Modifier.fillMaxSize()) {
-                val twoPi = (2 * PI).toFloat()
-                for (i in 0..2) {
-                    val yFrac = 0.35f + i * 0.22f
-                    val amp   = size.height * (0.06f + i * 0.02f)
-                    val freq  = 1.2f + i * 0.4f
-                    val ph    = phase * twoPi + i * twoPi / 3f
-                    val path  = androidx.compose.ui.graphics.Path()
-                    var first = true
-                    for (step in 0..60) {
-                        val x = step / 60f * size.width
-                        val y = size.height * yFrac + sin(x / size.width * twoPi * freq + ph) * amp
-                        if (first) { path.moveTo(x, y); first = false } else path.lineTo(x, y)
+            if (track.albumArtUrl != null) {
+                AsyncImage(
+                    model = track.albumArtUrl,
+                    contentDescription = track.title,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                // Animated wave lines on the card art
+                Canvas(Modifier.fillMaxSize()) {
+                    val twoPi = (2 * PI).toFloat()
+                    for (i in 0..2) {
+                        val yFrac = 0.35f + i * 0.22f
+                        val amp   = size.height * (0.06f + i * 0.02f)
+                        val freq  = 1.2f + i * 0.4f
+                        val ph    = phase * twoPi + i * twoPi / 3f
+                        val path  = androidx.compose.ui.graphics.Path()
+                        var first = true
+                        for (step in 0..60) {
+                            val x = step / 60f * size.width
+                            val y = size.height * yFrac + sin(x / size.width * twoPi * freq + ph) * amp
+                            if (first) { path.moveTo(x, y); first = false } else path.lineTo(x, y)
+                        }
+                        drawPath(path, Color.White.copy(0.10f),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(1.4f))
                     }
-                    drawPath(path, Color.White.copy(0.10f),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(1.4f))
                 }
+                // First letter watermark
+                Text(
+                    track.title.take(1).uppercase(),
+                    color = Color.White.copy(0.12f),
+                    fontSize = 56.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 10.dp, bottom = 4.dp),
+                )
             }
+
             // Playing indicator — pulsing dot
             if (isPlaying) {
                 Box(
@@ -239,16 +265,6 @@ private fun TrackCard(
                         .background(palette.vibrant, CircleShape),
                 )
             }
-            // First letter watermark
-            Text(
-                track.title.take(1).uppercase(),
-                color = Color.White.copy(0.12f),
-                fontSize = 56.sp,
-                fontWeight = FontWeight.Black,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 10.dp, bottom = 4.dp),
-            )
         }
 
         Column(Modifier.padding(horizontal = 10.dp, vertical = 9.dp)) {

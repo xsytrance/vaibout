@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.xsytrance.vaib.MainViewModel
 import com.xsytrance.vaib.Screen
 import com.xsytrance.vaib.audio.EqPreset
@@ -175,13 +176,21 @@ fun NowPlayingScreen(
                         )
                     )
                 }
-                // Large letter placeholder
-                Text(
-                    track?.title?.take(1)?.uppercase() ?: "♪",
-                    color = vibrant.copy(0.35f),
-                    fontSize = 96.sp,
-                    fontWeight = FontWeight.Black,
-                )
+                if (track?.albumArtUrl != null) {
+                    AsyncImage(
+                        model = track?.albumArtUrl,
+                        contentDescription = track?.title,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    // Large letter placeholder
+                    Text(
+                        track?.title?.take(1)?.uppercase() ?: "♪",
+                        color = vibrant.copy(0.35f),
+                        fontSize = 96.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
                 // Beat pulse border overlay
                 if (animBeat > 0.05f) {
                     Box(
