@@ -1,14 +1,17 @@
 package com.xsytrance.vaib.music
 
 import android.content.Context
+import android.net.Uri
 import com.xsytrance.vaib.data.VaibDatabase
 import com.xsytrance.vaib.data.entities.TrackEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import android.util.Log
 import org.json.JSONArray
 import java.net.URL
+import java.text.Normalizer
 
 const val WORKER_URL = "https://vaibout-music.agenor.workers.dev/"
 
@@ -36,6 +39,13 @@ private val FALLBACK_ALBUM_ART_BY_KEY: Map<String, String> = mapOf(
 class R2Repository(context: Context) {
 
     private val dao = VaibDatabase.get(context).trackDao()
+    private val prefs = context.getSharedPreferences("vaib_art_overrides", Context.MODE_PRIVATE)
+
+    fun setArtworkOverride(trackKey: String, uri: String) {
+        prefs.edit().putString(trackKey, uri).apply()
+    }
+
+    private fun artworkOverride(trackKey: String): String? = prefs.getString(trackKey, null)
 
     fun observeTracks(): Flow<List<Track>> = dao.observeAll().map { list ->
         list.map { it.toDomain() }
@@ -47,18 +57,22 @@ class R2Repository(context: Context) {
             val arr  = JSONArray(json)
             val entities = (0 until arr.length()).map { i ->
                 val obj      = arr.getJSONObject(i)
+                val key      = obj.getString("key")
                 val tagsJson = obj.optJSONArray("tags")
                 val tags     = if (tagsJson != null)
                     (0 until tagsJson.length()).joinToString(",") { tagsJson.getString(it) }
                 else ""
+                val remoteArt = obj.optString("albumArt").nullIfEmpty()
+                    ?: fallbackAlbumArtForKey(key)
+                val resolvedArt = artworkOverride(key)
+                    ?: remoteArt?.takeIf { urlLooksReachable(it) }
                 TrackEntity(
-                    key         = obj.getString("key"),
+                    key         = key,
                     url         = obj.getString("url"),
                     lrcUrl      = obj.optString("lrcUrl").nullIfEmpty(),
                     title       = obj.getString("title"),
                     artist      = obj.getString("artist"),
-                    albumArtUrl = obj.optString("albumArt").nullIfEmpty()
-                        ?: FALLBACK_ALBUM_ART_BY_KEY[obj.getString("key")],
+                    albumArtUrl = resolvedArt,
                     tags        = tags,
                     lyrics      = obj.optString("lyrics").nullIfEmpty(),
                     bpm         = if (obj.has("bpm") && !obj.isNull("bpm")) obj.getInt("bpm") else null,
@@ -66,9 +80,33 @@ class R2Repository(context: Context) {
             }
             dao.replaceAll(entities)
             entities.size
-        }
+        }.onFailure { Log.e("R2Repository", "refresh failed", it) }
     }
 }
+
+private fun fallbackAlbumArtForKey(key: String): String? {
+    FALLBACK_ALBUM_ART_BY_KEY[key]?.let { return it }
+    val normalized = key
+        .lowercase()
+        .removePrefix("xsytrance - ")
+        .removeSuffix(".mp3")
+        .let { Normalizer.normalize(it, Normalizer.Form.NFKD) }
+        .replace(Regex("\\p{M}+"), "")
+        .replace(Regex("\\([^)]*\\)"), "")
+        .replace(Regex("[^a-z0-9]+"), "")
+    return FALLBACK_ALBUM_ART_BY_KEY[normalized]?.ifBlank { null }
+        ?: normalized.takeIf { it.isNotBlank() }?.let { "${ALBUM_ART_BASE_URL}${it}.png" }
+}
+
+private fun urlLooksReachable(url: String): Boolean = runCatching {
+    val uri = Uri.parse(url)
+    if (uri.scheme == "content") return true
+    val conn = URL(url).openConnection()
+    conn.connectTimeout = 4000
+    conn.readTimeout = 4000
+    conn.getInputStream().use { it.read(ByteArray(1)) }
+    true
+}.getOrElse { false }
 
 private fun String?.nullIfEmpty(): String? =
     if (isNullOrEmpty() || this == "null") null else this

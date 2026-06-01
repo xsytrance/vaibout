@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,6 +62,7 @@ import kotlin.math.PI
 fun LibraryScreen(
     viewModel: MainViewModel,
     onTrackClick: (Track) -> Unit,
+    onUploadArtwork: (Track) -> Unit,
 ) {
     val tracks        by viewModel.tracks.collectAsState()
     val isRefreshing  by viewModel.isRefreshing.collectAsState()
@@ -159,6 +161,7 @@ fun LibraryScreen(
                             isPlaying = isPlaying && currentTrack?.key == track.key,
                             palette = palette,
                             onClick = { onTrackClick(track) },
+                            onUploadArtwork = { onUploadArtwork(track) },
                         )
                     }
                 }
@@ -189,6 +192,7 @@ private fun TrackCard(
     isPlaying: Boolean,
     palette: com.xsytrance.vaib.core.design.TrackPalette,
     onClick: () -> Unit,
+    onUploadArtwork: () -> Unit,
 ) {
     val (grad1, grad2) = remember(track.key) { trackGradient(track.key) }
     val transition = rememberInfiniteTransition(label = "card_${track.key}")
@@ -286,6 +290,11 @@ private fun TrackCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+            if (track.albumArtUrl == null) {
+                TextButton(onClick = onUploadArtwork, contentPadding = PaddingValues(0.dp)) {
+                    Text("Upload art", color = Color(0xFFFF6B6B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

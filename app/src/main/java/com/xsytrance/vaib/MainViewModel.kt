@@ -120,6 +120,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearRefreshError() { _refreshError.value = null }
 
+    fun setTrackArtwork(trackKey: String, uri: String) {
+        r2Repo.setArtworkOverride(trackKey, uri)
+        refreshLibrary()
+    }
+
     // ── Playback ─────────────────────────────────────────────────────────
 
     fun playTrack(track: Track, fromQueue: List<Track> = emptyList()) {
